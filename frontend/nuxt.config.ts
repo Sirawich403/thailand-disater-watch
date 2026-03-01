@@ -3,11 +3,6 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
   modules: ['@nuxtjs/leaflet', '@vite-pwa/nuxt'],
-  vite: {
-    ssr: {
-      external: ['@prisma/client']
-    }
-  },
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
@@ -57,6 +52,8 @@ export default defineNuxtConfig({
   },
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseKey: process.env.SUPABASE_KEY || '',
     firmsMapKey: process.env.FIRMS_MAP_KEY || '',
     openweatherApiKey: process.env.OPENWEATHER_API_KEY || '',
     aqicnApiToken: process.env.AQICN_API_TOKEN || '',
