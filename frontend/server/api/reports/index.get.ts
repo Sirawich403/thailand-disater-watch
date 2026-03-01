@@ -11,7 +11,8 @@ export default defineEventHandler(async () => {
 
         if (error) {
             console.error('[Reports GET] Supabase error:', error.message)
-            throw createError({ statusCode: 500, statusMessage: 'Database error' })
+            // Return empty instead of 500 so the page still renders
+            return { reports: [] }
         }
 
         // Map snake_case to camelCase for frontend compatibility
@@ -28,8 +29,8 @@ export default defineEventHandler(async () => {
 
         return { reports: mapped }
     } catch (error: any) {
-        if (error.statusCode) throw error
         console.error('Error fetching reports:', error)
-        throw createError({ statusCode: 500, statusMessage: 'Internal Server Error' })
+        // Return empty instead of throwing so the page still renders
+        return { reports: [] }
     }
 })
