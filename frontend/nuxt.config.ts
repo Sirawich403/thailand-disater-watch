@@ -52,11 +52,11 @@ export default defineNuxtConfig({
   },
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
-    supabaseUrl: process.env.SUPABASE_URL || '',
-    supabaseKey: process.env.SUPABASE_KEY || '',
-    firmsMapKey: process.env.FIRMS_MAP_KEY || '',
-    openweatherApiKey: process.env.OPENWEATHER_API_KEY || '',
-    aqicnApiToken: process.env.AQICN_API_TOKEN || '',
+    supabaseUrl: process.env.SUPABASE_URL || 'https://cpxcvwmhsfkacmqfioqr.supabase.co',
+    supabaseKey: process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNweGN2d21oc2ZrYWNtcWZpb3FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNzYyNjYsImV4cCI6MjA4Nzk1MjI2Nn0.OhYuk543RSiYxm_6UNv-eFpGqVDG156y4n0-XFVWCLM',
+    firmsMapKey: process.env.FIRMS_MAP_KEY || 'e3fa4f5bd9e4a5bb42985652483c4648',
+    openweatherApiKey: process.env.OPENWEATHER_API_KEY || '8ce6f77c7b6e231a83834453fdbb2124',
+    aqicnApiToken: process.env.AQICN_API_TOKEN || '37e5a6116dce6cb5b9f53436f8370616f68f78f2',
   },
   nitro: {
     routeRules: {
