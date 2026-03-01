@@ -383,6 +383,40 @@
               </LPopup>
             </LMarker>
           </template>
+
+          <!-- World Disaster Markers -->
+          <template v-if="worldDisasters && worldDisasters.length">
+            <LMarker
+              v-for="disaster in worldDisasters"
+              :key="'wd-' + disaster.id"
+              :lat-lng="[disaster.lat, disaster.lng]"
+            >
+              <LIcon
+                :icon-size="[36, 36]"
+                :icon-anchor="[18, 18]"
+                :popup-anchor="[0, -20]"
+                class-name="station-icon-transparent"
+              >
+                <div class="world-disaster-marker">
+                  <span class="wd-marker-emoji">{{ disaster.emoji }}</span>
+                </div>
+              </LIcon>
+              <LPopup :options="{ closeButton: true, className: 'dark-popup' }">
+                <div class="popup-content">
+                  <div class="popup-name" :style="{ color: disaster.severityColor }">{{ disaster.emoji }} {{ disaster.name }}</div>
+                  <div class="popup-type">{{ disaster.type }} • {{ disaster.country }}</div>
+                  <div class="popup-stat">
+                    <span class="popup-stat-label">สถานะ</span>
+                    <span class="popup-stat-value" :style="{ color: disaster.severityColor }">{{ disaster.status }}</span>
+                  </div>
+                  <div class="popup-stat">
+                    <span class="popup-stat-label">แหล่งข้อมูล</span>
+                    <span class="popup-stat-value">ReliefWeb (UN OCHA)</span>
+                  </div>
+                </div>
+              </LPopup>
+            </LMarker>
+          </template>
         </LMap>
       </ClientOnly>
 
@@ -529,6 +563,8 @@ const props = defineProps({
   spreadPredictions: { type: Array, default: () => [] },
   aqiStations: { type: Array, default: () => [] },
   worldFires: { type: Array, default: () => [] },
+  worldDisasters: { type: Array, default: () => [] },
+  viewMode: { type: String, default: 'thailand' },
   selectedFireId: { type: String, default: null },
   focusFire: { type: Object, default: null },
   focusStation: { type: Object, default: null },
@@ -586,13 +622,26 @@ watch(() => props.focusStation, (newVal) => {
   if (newVal && map.value) {
     const leafletMap = map.value.leafletObject
     if (leafletMap) {
-      leafletMap.flyTo([newVal.lat, newVal.lng], 10, {
+      const zoom = props.viewMode === 'world' ? 5 : 10
+      leafletMap.flyTo([newVal.lat, newVal.lng], zoom, {
         duration: 0.8,
       })
       // Ensure the water station layer is visible
-      if (!showWater.value) {
+      if (!showWater.value && props.viewMode !== 'world') {
         showWater.value = true
       }
+    }
+  }
+})
+
+// Watch for viewMode changes — zoom to world or back to Thailand
+watch(() => props.viewMode, (newMode) => {
+  if (map.value && map.value.leafletObject) {
+    const leafletMap = map.value.leafletObject
+    if (newMode === 'world') {
+      leafletMap.flyTo([20, 30], 2, { duration: 1.2 })
+    } else {
+      leafletMap.flyTo([13.5, 100.5], 6, { duration: 1.2 })
     }
   }
 })
@@ -1278,6 +1327,29 @@ function getRainIntensityLabel(intensity) {
 
 [data-theme="dark"] .station-pin {
   background: #1e293b;
+}
+
+/* World Disaster Markers */
+.world-disaster-marker {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(29, 78, 216, 0.12);
+  border: 2px solid rgba(29, 78, 216, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: wd-pulse 2.5s ease-in-out infinite;
+}
+
+.wd-marker-emoji {
+  font-size: 18px;
+}
+
+@keyframes wd-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+  50% { transform: scale(1.1); box-shadow: 0 2px 12px rgba(29, 78, 216, 0.4); }
 }
 </style>
 

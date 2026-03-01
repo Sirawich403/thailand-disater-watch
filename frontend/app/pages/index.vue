@@ -17,8 +17,89 @@
       <!-- Alert Banner -->
       <AlertBanner :risk-level="overallRisk" :stations="dashboardStations" :fires="firesList" @view-map="handleViewMap" />
 
-    <!-- Summary Stats -->
-    <div class="stats-bar">
+      <!-- View Mode Toggle -->
+      <div class="view-toggle-bar">
+        <button
+          class="view-toggle-btn"
+          :class="{ active: viewMode === 'thailand' }"
+          @click="viewMode = 'thailand'"
+        >
+          <span class="toggle-emoji">🇹🇭</span>
+          ข้อมูลไทย (Real-time)
+        </button>
+        <button
+          class="view-toggle-btn"
+          :class="{ active: viewMode === 'world' }"
+          @click="switchToWorld"
+        >
+          <span class="toggle-emoji">🌍</span>
+          Top 20 ภัยพิบัติโลก
+        </button>
+      </div>
+
+      <!-- World Disasters View -->
+      <div v-if="viewMode === 'world'" class="world-disasters-section">
+        <div v-if="pendingWorld" class="loading-overlay" style="min-height: 200px">
+          <div class="spinner"></div>
+          <div>กำลังโหลดข้อมูลภัยพิบัติโลก...</div>
+        </div>
+        <template v-else>
+          <div class="world-disasters-header">
+            <div class="card-title">
+              <span class="material-symbols-rounded">public</span>
+              ภัยพิบัติโลก Top 20 (ReliefWeb / UN OCHA)
+            </div>
+            <span class="station-count-badge">{{ worldDisastersList.length }} เหตุการณ์</span>
+          </div>
+          <div class="world-disasters-grid">
+            <div
+              v-for="disaster in worldDisastersList"
+              :key="disaster.id"
+              class="world-disaster-card"
+              :class="disaster.severity"
+              @click="focusWorldDisaster(disaster)"
+            >
+              <div class="wd-emoji">{{ disaster.emoji }}</div>
+              <div class="wd-info">
+                <div class="wd-name">{{ disaster.name }}</div>
+                <div class="wd-meta">
+                  <span class="wd-type">{{ disaster.type }}</span>
+                  <span class="wd-country">📍 {{ disaster.country }}</span>
+                </div>
+                <div class="wd-date">{{ formatDisasterDate(disaster.date) }}</div>
+              </div>
+              <div class="wd-severity" :style="{ background: disaster.severityColor + '20', color: disaster.severityColor }">
+                {{ disaster.severity === 'high' ? 'รุนแรง' : disaster.severity === 'medium' ? 'กำลังดำเนินอยู่' : 'ติดตาม' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- World Map -->
+          <div class="map-section" style="margin-top: 1.25rem">
+            <FloodMap
+              ref="floodMapRef"
+              :stations="[]"
+              :fires="[]"
+              :world-fires="[]"
+              :reports="[]"
+              :rain-stations="[]"
+              :spread-predictions="[]"
+              :aqi-stations="[]"
+              :selected-fire-id="''"
+              :focus-fire="null"
+              :focus-station="focusStation"
+              :world-disasters="worldDisastersList"
+              :view-mode="viewMode"
+              @select-station="() => {}"
+              @select-fire="() => {}"
+              @add-report="() => {}"
+            />
+          </div>
+        </template>
+      </div>
+
+    <!-- Summary Stats (Thai mode only) -->
+    <div v-if="viewMode === 'thailand'" class="stats-bar">
       <div class="stat-item">
         <div class="stat-icon water">
           <span class="material-symbols-rounded">water_drop</span>
@@ -93,8 +174,8 @@
       </div>
     </div>
 
-    <!-- Dashboard Grid -->
-    <div class="dashboard-grid">
+    <!-- Dashboard Grid (Thai mode only) -->
+    <div v-if="viewMode === 'thailand'" class="dashboard-grid">
       <!-- Map -->
       <div class="map-section">
         <FloodMap
@@ -200,6 +281,45 @@ const { data: rainData, pending: pendingRain, refresh: refreshRain } = await use
 const { data: aqiData, refresh: refreshAqi } = await useFetch('/api/dashboard/aqi', {
   server: false,
 })
+
+// World Disasters (lazy — only fetched on demand)
+const viewMode = ref('thailand')
+const worldData = ref(null)
+const pendingWorld = ref(false)
+
+async function switchToWorld() {
+  viewMode.value = 'world'
+  if (!worldData.value) {
+    pendingWorld.value = true
+    try {
+      worldData.value = await $fetch('/api/dashboard/world-disasters')
+    } catch (e) {
+      console.error('Failed to fetch world disasters:', e)
+    } finally {
+      pendingWorld.value = false
+    }
+  }
+}
+
+const worldDisastersList = computed(() => worldData.value?.disasters || [])
+
+function formatDisasterDate(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('th-TH', {
+    year: 'numeric', month: 'short', day: 'numeric'
+  })
+}
+
+function focusWorldDisaster(disaster) {
+  if (disaster.lat && disaster.lng) {
+    focusStation.value = {
+      lat: disaster.lat,
+      lng: disaster.lng,
+      id: disaster.id,
+      ts: Date.now()
+    }
+  }
+}
 
 // Combined loading and error states
 const isPending = computed(() => pendingDashboard.value || pendingFire.value || pendingReports.value || pendingRain.value)
@@ -421,5 +541,181 @@ onUnmounted(() => {
 
 .show-more-btn .material-symbols-rounded {
   font-size: 18px;
+}
+
+/* ===== View Toggle ===== */
+.view-toggle-bar {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+  box-shadow: var(--shadow-card);
+}
+
+.view-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.view-toggle-btn:hover {
+  color: var(--text-primary);
+  background: rgba(29, 78, 216, 0.04);
+}
+
+.view-toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.3);
+}
+
+.toggle-emoji {
+  font-size: 1.1rem;
+}
+
+/* ===== World Disasters ===== */
+.world-disasters-section {
+  animation: slide-in-down 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.world-disasters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.world-disasters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 0.75rem;
+}
+
+.world-disaster-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: var(--shadow-card);
+}
+
+.world-disaster-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--accent);
+}
+
+.world-disaster-card.high {
+  border-left: 3px solid #dc2626;
+}
+
+.world-disaster-card.medium {
+  border-left: 3px solid #f59e0b;
+}
+
+.world-disaster-card.active {
+  border-left: 3px solid #3b82f6;
+}
+
+.wd-emoji {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(29, 78, 216, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+.wd-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wd-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-bottom: 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wd-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.wd-type {
+  background: rgba(29, 78, 216, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.wd-date {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.wd-severity {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+@keyframes slide-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .world-disasters-grid {
+    grid-template-columns: 1fr;
+  }
+  .view-toggle-btn {
+    font-size: 0.78rem;
+    padding: 8px 12px;
+  }
 }
 </style>
