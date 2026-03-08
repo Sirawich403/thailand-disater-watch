@@ -295,28 +295,55 @@ async function generateLocalResponse(question: string, context: string, specific
     }
 
     // 3. Nationwide / General Fallback
-    const lines = context ? context.split('\n').filter(l => l.trim()) : []
-    const waterLine = lines.find(l => l.includes('สถานการณ์น้ำ') || l.includes('สถานี'))
-    const fireLine = lines.find(l => l.includes('ไฟป่า') || l.includes('จุดความร้อน'))
-    const aqiLine = lines.find(l => l.includes('PM2.5') || l.includes('AQI'))
-    const rainLine = lines.find(l => l.includes('ฝนตก') || l.includes('ฝน'))
+    // Extract actual specific location lists from the context string instead of just the first line
+    const extractSection = (keyword: string) => {
+        const contextLines = context ? context.split('\n') : []
+        const relevantLines = []
+        let capturing = false
+        for (const line of contextLines) {
+            if (line.includes(keyword)) {
+                capturing = true
+                relevantLines.push(line.replace(/^-\s*/, '').trim())
+            } else if (capturing && line.startsWith('  ')) {
+                relevantLines.push(line.trim())
+            } else if (capturing && (line.startsWith('-') || line.trim() === '')) {
+                capturing = false
+            }
+        }
+        return relevantLines.join(' ')
+    }
 
-    const cleanCtxLine = (line: string | undefined) => line ? line.replace(/^-\s*/, '').replace(/.*:/, '').trim() : ''
+    const waterText = extractSection('สถานการณ์น้ำ')
+    const fireText = extractSection('ไฟป่า')
+    const aqiText = extractSection('คุณภาพอากาศ')
+    const rainText = extractSection('ข้อมูลฝนตก')
+
+    const hasSpecificIntent = isRain || isAqi || isFire || isWater
 
     if (q.includes('สรุป') || q.includes('ภาพรวม') || q.includes('ตอนนี้') || q.includes('ไงบ้าง') || q.includes('เป็นไง') || isWhere || q.length < 15) {
         let result = ''
-        if (isWhere) {
-            result = 'ตอนนี้ในประเทศไทยพบสถานการณ์หลักๆ ดังนี้ครับ 🌍 '
-        } else {
-            result = 'นี่คือสรุปสถานการณ์ภาพรวมของประเทศล่าสุดนะครับ 🌍 '
-        }
-        if (waterLine) result += `สถานการณ์น้ำปัจจุบัน ${cleanCtxLine(waterLine)} `
-        if (fireLine) result += `เรื่องไฟป่า ${cleanCtxLine(fireLine)} `
-        if (aqiLine) result += `ด้านสภาพอากาศ ${cleanCtxLine(aqiLine)} `
-        if (rainLine) result += `และ ${cleanCtxLine(rainLine)} `
 
-        if (!waterLine && !fireLine) result += 'ระบบกำลังเตรียมข้อมูลล่าสุดสักครู่นะครับ ⏳ '
-        return result.trim() + ' พิมพ์ถามชื่อพิกัดหรือจังหวัดเจาะจงได้เลยนะครับ เช่น "เชียงใหม่ฝนตกไหม" เป็นต้น 💬'
+        if (hasSpecificIntent && isWhere) {
+            result = 'ตอนนี้ในประเทศไทยพบข้อมูลหลักๆ ในพื้นที่ดังนี้ครับ 🌍 '
+            if (isWater && waterText) result += `${waterText} `
+            if (isFire && fireText) result += `${fireText} `
+            if (isAqi && aqiText) result += `${aqiText} `
+            if (isRain && rainText) result += `${rainText} `
+        } else {
+            if (isWhere) {
+                result = 'ตอนนี้ในประเทศไทยพบสถานการณ์ภาพรวมดังนี้ครับ 🌍 '
+            } else {
+                result = 'นี่คือสรุปสถานการณ์ภาพรวมของประเทศล่าสุดนะครับ 🌍 '
+            }
+            if (waterText) result += `${waterText} `
+            if (fireText) result += `${fireText} `
+            if (aqiText) result += `${aqiText} `
+            if (rainText) result += `และ ${rainText} `
+
+            if (!waterText && !fireText) result += 'ระบบกำลังเตรียมข้อมูลล่าสุดสักครู่นะครับ ⏳ '
+        }
+
+        return result.trim() + ' ลองพิมพ์ชื่อพิกัดหรือจังหวัดเจาะจงเพื่อดูความเสี่ยงได้เลยนะครับ เช่น "เชียงใหม่ปลอดภัยไหม" 💬'
     }
 
     return `รบกวนช่วยพิมพ์พิกัดให้ชัดอีกนิดนะครับ เพื่อความแม่นยำในการค้นหา เช่น "PM2.5 เชียงใหม่" หรือ "รังสิต ฝนตกไหม" หรือพิมพ์ถาม "สรุปภาพรวม" เพื่อดูสถานการณ์ทั่วประเทศได้เลยครับ 💙`
