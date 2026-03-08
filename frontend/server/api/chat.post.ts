@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
         console.error('[Chat] GEMINI_API_TOKEN not set')
         // If no API key, try local response from context data
         if (dashboardContext) {
-            return { response: await generateLocalResponse(userMessage, dashboardContext) }
+            return { response: await generateLocalResponse(userMessage, dashboardContext, '') }
         }
         return { response: 'ระบบ AI ยังไม่ได้ตั้งค่า กรุณาแจ้งผู้ดูแลระบบครับ' }
     }
@@ -36,7 +36,85 @@ export default defineEventHandler(async (event) => {
         historyText = '[ประวัติการสนทนา]\n' + recent.map((m: any) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n') + '\n\n'
     }
 
-    const fullPrompt = `${systemInstruction}\n\n${dashboardContext}\n\n${historyText}คำถามล่าสุดจากผู้ใช้: ${userMessage}`
+    // --- DYNAMIC RAG CONTEXT (Fetch specific data based on query) ---
+    let specificContext = ''
+    try {
+        const q = userMessage.toLowerCase()
+        const [summary, fireData, aqiData, rainData] = await Promise.allSettled([
+            $fetch('/api/dashboard/summary'),
+            $fetch('/api/dashboard/fires'),
+            $fetch('/api/dashboard/aqi'),
+            $fetch('/api/dashboard/rain'),
+        ])
+
+        let matches: string[] = []
+
+        // Helper to check if a location keyword is in the query (avoiding generic short words)
+        const inQ = (kw: string | undefined | null) => {
+            if (!kw) return false
+            const word = kw.replace(/^(จ\.|อ\.|ต\.|บ้าน|เมือง)/, '').trim()
+            if (word.length <= 2) return false // Skip very short words to avoid false positives
+            if (['ประเทศไทย', 'กรุงเทพ', 'เหนือ', 'ใต้', 'ออก', 'ตก'].includes(word)) return false // Skip too broad if we want specific
+            return q.includes(word.toLowerCase())
+        }
+
+        // Exact province match check (for broader scope)
+        const isProvinceMatch = (prov: string | undefined) => prov && q.includes(prov.replace('มหานคร', '').trim())
+
+        if (rainData.status === 'fulfilled') {
+            const data = (rainData.value as any)?.rainStations || []
+            data.forEach((r: any) => {
+                if (inQ(r.amphoe) || inQ(r.tambon) || inQ(r.stationName) || isProvinceMatch(r.province)) {
+                    matches.push(`[ฝนตก] จ.${r.province} อ.${r.amphoe}: ${r.rain24h}mm`)
+                }
+            })
+        }
+
+        if (aqiData.status === 'fulfilled') {
+            const data = (aqiData.value as any)?.stations || []
+            data.forEach((s: any) => {
+                if (inQ(s.name) || inQ(s.nameEn) || isProvinceMatch(s.name)) {
+                    matches.push(`[PM2.5] สถานี ${s.name}: AQI=${s.aqi}`)
+                }
+            })
+        }
+
+        if (fireData.status === 'fulfilled') {
+            const data = (fireData.value as any)?.fires || []
+            let provCount: Record<string, number> = {}
+            data.forEach((f: any) => {
+                if (isProvinceMatch(f.province)) {
+                    provCount[f.province] = (provCount[f.province] || 0) + 1
+                } else if (inQ(f.name)) {
+                    matches.push(`[ไฟป่า] พบที่ ${f.name} จ.${f.province || '?'} (ระดับ ${f.intensity})`)
+                }
+            })
+            for (const [p, count] of Object.entries(provCount)) {
+                matches.push(`[ไฟป่า] จ.${p} พบจุดความร้อน ${count} จุด`)
+            }
+        }
+
+        if (summary.status === 'fulfilled') {
+            const data = (summary.value as any)?.stations || []
+            data.forEach((s: any) => {
+                if (inQ(s.name) || inQ(s.description) || isProvinceMatch(s.description)) {
+                    matches.push(`[ระดับน้ำ] สถานี ${s.name}: ${s.currentLevel}m (${s.riskLevel === 'danger' ? 'วิกฤต' : s.riskLevel === 'warning' ? 'เฝ้าระวัง' : 'ปกติ'})`)
+                }
+            })
+        }
+
+        if (matches.length > 0) {
+            // Remove duplicates and limit to 40 lines
+            const uniqueMatches = [...new Set(matches)].slice(0, 40)
+            specificContext = `\n[ข้อมูลสืบค้นเฉพาะเจาะจงพื้นที่จากฐานข้อมูล (Local Search Results)]\n${uniqueMatches.join('\n')}\n`
+            console.log(`[Chat] Added ${uniqueMatches.length} specific local context lines for query: "${userMessage}"`)
+        }
+
+    } catch (e) {
+        console.error('[Chat] Failed to build dynamic RAG context', e)
+    }
+
+    const fullPrompt = `${systemInstruction}\n\n${dashboardContext}\n${specificContext}\n${historyText}คำถามล่าสุดจากผู้ใช้: ${userMessage}`
 
     // Call Gemini API with retry on 429
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
@@ -70,13 +148,13 @@ export default defineEventHandler(async (event) => {
                 }
                 // All retries exhausted — fallback to local
                 console.warn('[Chat] All retries exhausted, using local fallback')
-                return { response: await generateLocalResponse(userMessage, dashboardContext) }
+                return { response: await generateLocalResponse(userMessage, dashboardContext, specificContext) }
             }
 
             if (!res.ok) {
                 const errText = await res.text().catch(() => '')
                 console.error(`[Chat] Gemini error ${res.status}:`, errText.substring(0, 200))
-                return { response: await generateLocalResponse(userMessage, dashboardContext) }
+                return { response: await generateLocalResponse(userMessage, dashboardContext, specificContext) }
             }
 
             const data = await res.json()
@@ -88,7 +166,7 @@ export default defineEventHandler(async (event) => {
             }
 
             // Empty answer — fallback
-            return { response: await generateLocalResponse(userMessage, dashboardContext) }
+            return { response: await generateLocalResponse(userMessage, dashboardContext, specificContext) }
 
         } catch (error: any) {
             if (error.name === 'AbortError') {
@@ -97,20 +175,33 @@ export default defineEventHandler(async (event) => {
                 console.error('[Chat] Error on attempt', attempt + 1, ':', error.message)
             }
             if (attempt === maxRetries - 1) {
-                return { response: await generateLocalResponse(userMessage, dashboardContext) }
+                return { response: await generateLocalResponse(userMessage, dashboardContext, specificContext) }
             }
         }
     }
 
-    return { response: await generateLocalResponse(userMessage, dashboardContext) }
+    return { response: await generateLocalResponse(userMessage, dashboardContext, specificContext) }
 })
 
 /**
  * Generate a response locally from dashboard data — no AI needed.
  * This is the fallback when Gemini is unavailable (rate limited, timeout, etc.)
  */
-async function generateLocalResponse(question: string, context: string): Promise<string> {
+async function generateLocalResponse(question: string, context: string, specificContext: string = ''): Promise<string> {
     const q = question.toLowerCase()
+
+    // 0. Use Specific Context if available (Highly targeted local matches)
+    if (specificContext && specificContext.trim() !== '') {
+        const lines = specificContext.split('\n').filter(l => l.startsWith('['))
+        if (lines.length > 0) {
+            let msg = `ตรวจพบพื้นที่ใกล้เคียงจากคีย์เวิร์ดที่คุณถามค่ะ 🔍\n\n`
+            lines.slice(0, 10).forEach(l => {
+                msg += `- ${l.replace(/^\[.*?\]\s*/, '')}\n`
+            })
+            msg += `\nดูแลตัวเองด้วยนะคะ มีอะไรถามเพิ่มได้เลย 🌟`
+            return msg
+        }
+    }
 
     // 1. Province-specific analysis (Requires fetching raw data for accuracy)
     const PROVINCES = [
