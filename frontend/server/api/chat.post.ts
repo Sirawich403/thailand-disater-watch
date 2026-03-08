@@ -25,9 +25,9 @@ export default defineEventHandler(async (event) => {
 หน้าที่และกฎข้อบังคับของคุณ:
 1. ตอบคำถามเกี่ยวกับภัยพิบัติ (น้ำท่วม, ไฟป่า, ฝุ่น PM2.5, ฝนตก) ครอบคลุมทุกตำบล อำเภอ และจังหวัดทั่วประเทศไทย
 2. **สำคัญมากที่สุด:** คุณต้องอ้างอิงการตอบคำถามจาก [ข้อมูลภาพรวม] และ [ข้อมูลสืบค้นเฉพาะเจาะจง] ที่ระบบส่งให้แนบท้ายมาเท่านั้น (เป็นข้อมูล Real-time อัปเดตทุก 5 นาทีจากเซิร์ฟเวอร์หลัก)
-3. **ห้ามแต่งข้อมูลเอง เดา หรือใช้ฐานข้อมูลเก่าของคุณเด็ดขาด:** หากผู้ใช้ถามถึงพื้นที่ใดๆ แล้วในข้อมูล Context ไม่มีรายงานจุดเสี่ยงหรือสถานีในพื้นที่นั้นเลย ให้ตอบไปตามตรงว่า "ณ ปัจจุบันยังไม่มีรายงานภัยพิบัติในพิกัดดังกล่าวค่ะ จึงถือว่ายังอยู่ในเกณฑ์ปลอดภัยนะคะ 🌟"
+3. **ห้ามแต่งข้อมูลเอง เดา หรือใช้ฐานข้อมูลเก่าของคุณเด็ดขาด:** หากผู้ใช้ถามถึงพื้นที่ใดๆ แล้วในข้อมูล Context ไม่มีรายงานจุดเสี่ยงหรือสถานีในพื้นที่นั้นเลย ให้ตอบเป็นความเรียงว่า "ตอนนี้ที่ [พิกัด] สภาพอากาศปกติครับ ไม่มีรายงานพายุฝน น้ำท่วม หรือฝุ่นควันรุนแรงแต่อย่างใด สบายใจได้เลยครับ ให้ผมช่วยดูข้อมูลจังหวัดอื่นเพิ่มเติมไหมครับ?"
 4. ตอบคำถามชีวิตประจำวันได้ เช่น "รังสิตฝนตกไหม", "เชียงใหม่น้ำจะท่วมไหม" โดยวิเคราะห์จาก Context ที่เจอ
-5. ตอบอย่างเป็นธรรมชาติ เป็นมิตร ไม่โยนข้อมูลเป็นลิสต์ยาวๆ น่าเบื่อจนเกินไป (ใช้คำลงท้าย ครับ/ค่ะ สลับกันไป หรือใช้อีโมจิ 🌟🌧️🔥)
+5. **รูปแบบการตอบ (Formatting):** ให้บรรยายตอบเป็น "ย่อหน้าความเรียงที่อ่านธรรมชาติ คล้ายคนพูด" (Conversational Paragraph) แบบเดียวกับ Google Assistant **ห้ามใช้ Bullet points (-) หรือทำเป็นก้อนลิสต์รายงานข้อมูลดิบเด็ดขาด** (ใช้คำลงท้าย ครับ/ค่ะ สลับกันไป หรือใช้อีโมจิประกอบพอดีๆ ☀️🌦️)
 6. หากผู้ใช้ถามว่าข้อมูลมาจากไหน ให้อธิบายว่ามาจาก สสน. (ThaiWater), NASA FIRMS, และ WAQI`
 
     let historyText = ''
@@ -199,11 +199,11 @@ async function generateLocalResponse(question: string, context: string, specific
     let isSystem = q.includes('ระบบนี้') || q.includes('คืออะไร') || q.includes('ใช้งานยังไง') || q.includes('แหล่งข้อมูล') || q.includes('มาจากไหน') || q.includes('ใครทำ')
 
     if (isSystem) {
-        return `🤖 **เกี่ยวกับ Thailand Disaster Watch**\nระบบนี้แสดงข้อมูลภัยพิบัติ Real-time (น้ำ, ฝน, ไฟป่า, ฝุ่น) จาก สสน., NASA, WAQI ค่ะ\nพิมพ์ถามพิกัดที่อยากรู้ได้เลย เช่น "เชียงใหม่ฝนตกไหม" 💙`
+        return `🤖 **เกี่ยวกับระบบ Thailand Disaster Watch**\nระบบนี้รวบรวมข้อมูลภัยพิบัติแบบ Real-time โดยดึงข้อมูลระดับน้ำและฝนจาก สสน. (ThaiWater), จุดความร้อนไฟป่าจากดาวเทียม NASA FIRMS และฝุ่นจาก WAQI ครับ พิมพ์ถามสภาพอากาศของแต่ละจังหวัดได้เลยนะครับ เช่น "เชียงใหม่ฝนตกไหม"`
     }
 
     if (q.includes('สวัสดี') || q.includes('ดีครับ') || q.includes('ทำอะไร')) {
-        return `สวัสดีค่ะ! 👋 เราคือ **Disaster AI Assistant** หุ่นยนต์เฝ้าระวังภัยพิบัติ 🇹🇭\nอยากเช็ค ฝน, น้ำ, ไฟ, ฝุ่น ที่ไหน พิมพ์บอกพิกัดมาได้เลย!`
+        return `สวัสดีครับ! 👋 ผมคือ **Disaster AI Assistant** คอยช่วยเหลือติดตามสถานการณ์ภัยพิบัติในประเทศไทยครับ วันนี้อยากให้ผมช่วยเช็คข้อมูลฝนตก น้ำท่วม ไฟป่า หรือฝุ่น PM2.5 ที่ไหน พิมพ์บอกพิกัดมาได้เลยครับ!`
     }
 
     const cleanLine = (l: string | undefined) => l ? l.replace(/^\[.*?\]\s*/, '').trim() : ''
@@ -217,69 +217,74 @@ async function generateLocalResponse(question: string, context: string, specific
         const fireLines = specLines.filter(l => l.startsWith('[ไฟป่า]'))
         const waterLines = specLines.filter(l => l.startsWith('[ระดับน้ำ]'))
 
-        let response = `📍 **ข้อมูลในพื้นที่นี้:**\n`
+        let paragraph = ''
         let answered = false
 
         if (isSafety && !isRain && !isAqi && !isFire && !isWater) {
-            let msg = `🛡️ **ประเมินความปลอดภัยในพื้นที่รอบๆ:**\n`
-            if (rainLines.length > 0) msg += `- 🌧️ ฝนตก: ${cleanLine(rainLines[0])}\n`
-            if (aqiLines.length > 0) msg += `- 😷 อากาศ: ${cleanLine(aqiLines[0])}\n`
-            if (fireLines.length > 0) msg += `- 🔥 ไฟป่า: พบจุดความร้อน ${fireLines.length} จุด\n`
-            if (waterLines.length > 0) msg += `- 💧 ระดับน้ำ: ${cleanLine(waterLines[0])}\n`
+            let issues = []
+            if (rainLines.length > 0) issues.push(`กลุ่มฝน (${cleanLine(rainLines[0])})`)
+            if (aqiLines.length > 0) issues.push(`ปัญหาฝุ่นควัน (${cleanLine(aqiLines[0])})`)
+            if (fireLines.length > 0) issues.push(`จุดความร้อนไฟป่า ${fireLines.length} จุด`)
+            if (waterLines.length > 0) issues.push(`ระดับน้ำล้นตลิ่ง (${cleanLine(waterLines[0])})`)
 
-            if (rainLines.length === 0 && aqiLines.length === 0 && fireLines.length === 0 && waterLines.length === 0) {
-                return `รอดปลอดภัย 100% ค่ะ! 🎉 ไม่มีรายงานจุดเสี่ยงหรือเตือนภัยในพื้นที่นี้เลย อยู่บ้านสบายใจได้นะคะ 🏡✨`
+            if (issues.length === 0) {
+                return `สำหรับพื้นที่ที่คุณสอบถาม ตอนนี้สภาพอากาศและสถานการณ์ปกติดีทุกอย่างเลยครับ ท้องฟ้าแจ่มใส ไม่มีรายงานพายุ ฝุ่น หรือภัยน้ำให้กังวล สบายใจได้ครับ 😊`
+            } else {
+                return `จากการตรวจเช็ค ตอนนี้ทางระบบพบว่ามีสิ่งที่อาจจะต้องเฝ้าระวังคือ ${issues.join(' และ ')} ครับ ถ้าบ้านไม่ได้อยู่ในจุดแจ้งเตือนพอดีก็ถือว่าปลอดภัยครับ แต่เตรียมตัวป้องกันไว้ก่อนก็ดีนะครับ 💙`
             }
-            return msg + `\nภาพรวมหากไม่ได้อยู่ในจุดเสี่ยงเป๊ะๆ น่าจะปลอดภัยค่ะ ดูแลตัวเองด้วยนะคะ 💙`
         }
 
         if (isRain) {
             if (rainLines.length > 0) {
-                response += `🌧️ **พิกัดที่พบฝนตก:**\n` + rainLines.slice(0, 5).map(l => `- ${cleanLine(l)}`).join('\n') + '\n'
+                const places = rainLines.slice(0, 3).map(l => cleanLine(l)).join(', ')
+                paragraph += `ตรวจพบกลุ่มฝนในพื้นที่ครับ โดยจุดที่มีฝนคือ ${places} `
             } else {
-                response += `🌤️ **ฝนตก:** ตอนนี้ไม่มีรายงานฝนตกหนักจากสถานีใกล้เคียงค่ะ\n`
+                paragraph += `ตอนนี้ฝนไม่ได้ตกครับ สภาพอากาศปัจจุบันไม่มีรายงานพายุฝนจากสถานีใกล้เคียงครับ `
             }
             answered = true
         }
 
         if (isAqi) {
             if (aqiLines.length > 0) {
-                response += `😷 **ฝุ่น PM2.5:**\n` + aqiLines.slice(0, 5).map(l => `- ${cleanLine(l)}`).join('\n') + '\n'
+                const places = aqiLines.slice(0, 2).map(l => cleanLine(l)).join(' และ ')
+                paragraph += `สรุปค่าฝุ่นตอนนี้พบรายงานจาก ${places} หากค่า AQI เกิน 100 แนะนำสวมหน้ากากอนามัยด้วยนะครับ `
             } else {
-                response += `🍃 **ฝุ่น PM2.5:** ค่าฝุ่นยังไม่วิกฤตจนระบบจับได้ค่ะ\n`
+                paragraph += `คุณภาพอากาศและค่าฝุ่น PM2.5 ตอนนี้ถือว่าอยู่ในเกณฑ์ดีครับ ไม่มีรายงานฝุ่นเกินมาตรฐาน `
             }
             answered = true
         }
 
         if (isFire) {
             if (fireLines.length > 0) {
-                response += `🔥 **พบไฟป่า/จุดความร้อน:**\n` + fireLines.slice(0, 5).map(l => `- ${cleanLine(l)}`).join('\n') + '\n'
+                const places = fireLines.slice(0, 3).map(l => cleanLine(l)).join(', ')
+                paragraph += `พบพิกัดจุดความร้อนไฟป่าใกล้เคียงครับ (${places}) ระมัดระวังควันไฟกันด้วยนะครับ `
             } else {
-                response += `🌲 **ไฟป่า:** ปลอดภัยค่ะ ตอนนี้ไม่พบจุดความร้อนระแวกนี้\n`
+                paragraph += `ตรวจสอบแล้วไม่พบจุดไฟป่าในพื้นที่นี้ครับ ปลอดภัยจากกลุ่มควันไฟและมลพิษแน่นอนครับ `
             }
             answered = true
         }
 
         if (isWater) {
             if (waterLines.length > 0) {
-                response += `💧 **ระดับน้ำ:**\n` + waterLines.slice(0, 5).map(l => `- ${cleanLine(l)}`).join('\n') + '\n'
+                const places = waterLines.slice(0, 2).map(l => cleanLine(l)).join(' และ ')
+                paragraph += `มีรายงานความเสี่ยงระดับน้ำที่ ${places} ครับ แนะนำติดตามประกาศน้ำล้นตลิ่งนะครับ `
             } else {
-                response += `🌊 **ระดับน้ำ:** สถานการณ์ปกติ ทรงตัวดีค่ะ\n`
+                paragraph += `ระดับในพื้นฐานน้ำยังคงเป็นปกติครับ ไม่มีแจ้งเตือนน้ำล้นตลิ่งเลย สบายใจได้ครับ `
             }
             answered = true
         }
 
-        if (answered) return response.trim()
+        if (answered) return paragraph.trim()
 
-        // If no specific intent was asked, just show top general details found
-        return `📍 **ข้อมูลพื้นที่จากที่ค้นหา:**\n` + specLines.slice(0, 5).map(l => `- ${cleanLine(l)}`).join('\n')
+        const summaryPlaces = specLines.slice(0, 3).map(l => cleanLine(l)).join(', ')
+        return `ในพื้นที่ที่คุณอยากรู้ พบข้อมูลจากสถานี ${summaryPlaces} ครับ หากมีเรื่องไหนเจาะจงเช่น "ฝนตกไหม" ถามผมต่อได้เลยนะครับ 😊`
     }
 
     // 2. If NO SPECIFIC MATCHES (e.g. didn't mention a valid province/station or spelled it differently)
     const isSpecificQuery = q.length > 3 && !q.includes('ประเทศ') && !q.includes('ภาพรวม') && !q.includes('สรุป')
 
     if (isSpecificQuery && (isRain || isAqi || isFire || isWater || isSafety)) {
-        return `🔍 ตอนนี้ยังไม่พบข้อมูลสถานีแจ้งเตือนในพิกัดที่คุณถามค่ะ (อาจเป็นพื้นที่ปลอดภัยไม่มีสถานการณ์ฉุกเฉิน 🌟)\n\nหากต้องการดูข้อมูลภาพรวมทั่วประเทศ พิมพ์ "สรุปภาพรวม" ได้เลยค่ะ`
+        return `ตอนนี้ยังไม่พบข้อมูลสถานีแจ้งเตือนในพิกัดที่คุณถามมาเลยครับ (ซึ่งน่าจะเป็นพื้นที่ปลอดภัยไม่มีสถานการณ์ฉุกเฉินครับ 🌟) หากต้องการดูภาพรวมทั่วประเทศ พิมพ์บอกว่า "สรุปภาพรวม" ได้เลยนะครับ`
     }
 
     // 3. Nationwide / General Fallback
@@ -292,15 +297,15 @@ async function generateLocalResponse(question: string, context: string, specific
     const cleanCtxLine = (line: string | undefined) => line ? line.replace(/^-\s*/, '').replace(/.*:/, '').trim() : ''
 
     if (q.includes('สรุป') || q.includes('ภาพรวม') || q.includes('ตอนนี้') || q.includes('ไงบ้าง') || q.includes('เป็นไง') || q.length < 15) {
-        let result = '🌍 **สรุปภาพรวมทั่วประเทศล่าสุด:**\n'
-        if (waterLine) result += `💧 ${cleanCtxLine(waterLine)}\n`
-        if (fireLine) result += `🔥 ${cleanCtxLine(fireLine)}\n`
-        if (aqiLine) result += `💨 ${cleanCtxLine(aqiLine)}\n`
-        if (rainLine) result += `🌧️ ${cleanCtxLine(rainLine)}\n`
+        let result = 'นี่คือสรุปสถานการณ์ภาพรวมของประเทศล่าสุดนะครับ 🌍 '
+        if (waterLine) result += `สถานการณ์น้ำปัจจุบัน ${cleanCtxLine(waterLine)} `
+        if (fireLine) result += `เรื่องไฟป่า ${cleanCtxLine(fireLine)} `
+        if (aqiLine) result += `ด้านสภาพอากาศ ${cleanCtxLine(aqiLine)} `
+        if (rainLine) result += `และ ${cleanCtxLine(rainLine)} `
 
-        if (!waterLine && !fireLine) result += 'กำลังซิงค์ข้อมูลล่าสุดให้ รอแปปนึงนะคะ ⏳\n'
-        return result + '\nพิมพ์ถามระบุพิกัดชัดๆ ได้เลยค่ะ เช่น "เชียงใหม่ฝนตกไหม" 💬'
+        if (!waterLine && !fireLine) result += 'ระบบกำลังเตรียมข้อมูลล่าสุดสักครู่นะครับ ⏳ '
+        return result.trim() + ' พิมพ์ถามชื่อพิกัดหรือจังหวัดเจาะจงได้เลยนะครับ เช่น "เชียงใหม่ฝนตกไหม" เป็นต้น 💬'
     }
 
-    return `รับทราบค่ะ 🌟 เพื่อความแม่นยำขึ้น รบกวนพิมพ์พิกัดให้ชัดอีกนิดนะคะ เช่น:\n- "PM2.5 กรุงเทพ"\n- "เชียงใหม่ ฝนตกไหม"\nหรือพิมพ์ "สรุปภาพรวม" เพื่อดูสถานการณ์ทั่วประเทศค่ะ 💙`
+    return `รบกวนช่วยพิมพ์พิกัดให้ชัดอีกนิดนะครับ เพื่อความแม่นยำในการค้นหา เช่น "PM2.5 เชียงใหม่" หรือ "รังสิต ฝนตกไหม" หรือพิมพ์ถาม "สรุปภาพรวม" เพื่อดูสถานการณ์ทั่วประเทศได้เลยครับ 💙`
 }
