@@ -197,6 +197,7 @@ async function generateLocalResponse(question: string, context: string, specific
     let isWater = q.includes('น้ำท่วม') || q.includes('น้ำ') || q.includes('ระดับน้ำ') || q.includes('flood') || q.includes('ท่วมไหม')
     let isSafety = q.includes('รอด') || q.includes('ปลอดภัย') || q.includes('อันตราย') || q.includes('อยู่บ้าน') || q.includes('เป็นไงบ้าง') || q.includes('เตรียมตัว')
     let isSystem = q.includes('ระบบนี้') || q.includes('คืออะไร') || q.includes('ใช้งานยังไง') || q.includes('แหล่งข้อมูล') || q.includes('มาจากไหน') || q.includes('ใครทำ')
+    let isWhere = q.includes('ที่ไหน') || q.includes('จังหวัดไหน') || q.includes('ตรงไหน') || q.includes('บริเวณไหน')
 
     if (isSystem) {
         return `🤖 **เกี่ยวกับระบบ Thailand Disaster Watch**\nระบบนี้รวบรวมข้อมูลภัยพิบัติแบบ Real-time โดยดึงข้อมูลระดับน้ำและฝนจาก สสน. (ThaiWater), จุดความร้อนไฟป่าจากดาวเทียม NASA FIRMS และฝุ่นจาก WAQI ครับ พิมพ์ถามสภาพอากาศของแต่ละจังหวัดได้เลยนะครับ เช่น "เชียงใหม่ฝนตกไหม"`
@@ -281,7 +282,7 @@ async function generateLocalResponse(question: string, context: string, specific
     }
 
     // 2. If NO SPECIFIC MATCHES (e.g. didn't mention a valid province/station or spelled it differently)
-    const isSpecificQuery = q.length > 3 && !q.includes('ประเทศ') && !q.includes('ภาพรวม') && !q.includes('สรุป')
+    const isSpecificQuery = q.length > 3 && !q.includes('ประเทศ') && !q.includes('ภาพรวม') && !q.includes('สรุป') && !isWhere
 
     if (isSpecificQuery && (isRain || isAqi || isFire || isWater || isSafety)) {
         return `ตอนนี้ยังไม่พบข้อมูลสถานีแจ้งเตือนในพิกัดที่คุณถามมาเลยครับ (ซึ่งน่าจะเป็นพื้นที่ปลอดภัยไม่มีสถานการณ์ฉุกเฉินครับ 🌟) หากต้องการดูภาพรวมทั่วประเทศ พิมพ์บอกว่า "สรุปภาพรวม" ได้เลยนะครับ`
@@ -296,8 +297,13 @@ async function generateLocalResponse(question: string, context: string, specific
 
     const cleanCtxLine = (line: string | undefined) => line ? line.replace(/^-\s*/, '').replace(/.*:/, '').trim() : ''
 
-    if (q.includes('สรุป') || q.includes('ภาพรวม') || q.includes('ตอนนี้') || q.includes('ไงบ้าง') || q.includes('เป็นไง') || q.length < 15) {
-        let result = 'นี่คือสรุปสถานการณ์ภาพรวมของประเทศล่าสุดนะครับ 🌍 '
+    if (q.includes('สรุป') || q.includes('ภาพรวม') || q.includes('ตอนนี้') || q.includes('ไงบ้าง') || q.includes('เป็นไง') || isWhere || q.length < 15) {
+        let result = ''
+        if (isWhere) {
+            result = 'ตอนนี้ในประเทศไทยพบสถานการณ์หลักๆ ดังนี้ครับ 🌍 '
+        } else {
+            result = 'นี่คือสรุปสถานการณ์ภาพรวมของประเทศล่าสุดนะครับ 🌍 '
+        }
         if (waterLine) result += `สถานการณ์น้ำปัจจุบัน ${cleanCtxLine(waterLine)} `
         if (fireLine) result += `เรื่องไฟป่า ${cleanCtxLine(fireLine)} `
         if (aqiLine) result += `ด้านสภาพอากาศ ${cleanCtxLine(aqiLine)} `
