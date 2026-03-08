@@ -42,6 +42,23 @@
           </div>
         </div>
 
+        <!-- Quick Action Buttons -->
+        <div v-if="showQuickActions" class="quick-actions">
+          <div class="quick-actions-label">ลองถามเลย:</div>
+          <div class="quick-actions-grid">
+            <button 
+              v-for="action in quickActions" 
+              :key="action.label"
+              class="quick-action-btn"
+              :disabled="isLoading"
+              @click="sendQuickAction(action.message)"
+            >
+              <span class="qa-emoji">{{ action.emoji }}</span>
+              <span class="qa-text">{{ action.label }}</span>
+            </button>
+          </div>
+        </div>
+
         <div class="chat-input-area">
           <form @submit.prevent="sendMessage" style="display: flex; gap: 8px; width: 100%;">
             <input 
@@ -87,6 +104,22 @@ const messages = ref([
     content: 'สวัสดีครับ ผมคือ AI ผู้ช่วยเฝ้าระวังภัยพิบัติระดับประเทศ มีอะไรให้ผมช่วยสืบค้นข้อมูลน้ำท่วมหรือไฟป่าไหมครับ?'
   }
 ])
+
+const quickActions = [
+  { emoji: '📊', label: 'สรุปสถานการณ์', message: 'สรุปสถานการณ์ภัยพิบัติตอนนี้' },
+  { emoji: '🌧️', label: 'ฝนตก', message: 'จังหวัดไหนฝนตกบ้าง' },
+  { emoji: '🔥', label: 'ไฟป่า', message: 'สถานการณ์ไฟป่าล่าสุด' },
+  { emoji: '💨', label: 'PM2.5', message: 'ค่า PM2.5 แต่ละจังหวัดเท่าไหร่' },
+  { emoji: '💧', label: 'ระดับน้ำ', message: 'สถานีไหนระดับน้ำวิกฤต' },
+]
+
+// Show quick actions only when there's just the welcome message
+const showQuickActions = computed(() => messages.value.length <= 1)
+
+function sendQuickAction(message) {
+  inputMsg.value = message
+  sendMessage()
+}
 
 function renderMarkdown(text) {
   if (!text) return ''
@@ -443,6 +476,78 @@ function scrollToBottom() {
 .slide-up-leave-to {
   opacity: 0;
   transform: scale(0.9) translateY(20px);
+}
+
+/* Quick Action Buttons */
+.quick-actions {
+  padding: 0 16px 8px;
+  flex-shrink: 0;
+}
+
+.quick-actions-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.quick-actions-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(29, 78, 216, 0.04);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.quick-action-btn:hover:not(:disabled) {
+  background: rgba(29, 78, 216, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.15);
+}
+
+.quick-action-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.quick-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qa-emoji {
+  font-size: 0.9rem;
+}
+
+.qa-text {
+  font-size: 0.75rem;
+}
+
+[data-theme="dark"] .quick-action-btn {
+  background: rgba(56, 189, 248, 0.06);
+  border-color: rgba(71, 85, 105, 0.4);
+}
+
+[data-theme="dark"] .quick-action-btn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
 }
 
 @media (max-width: 480px) {
