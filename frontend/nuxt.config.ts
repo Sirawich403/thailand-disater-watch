@@ -30,7 +30,7 @@ export default defineNuxtConfig({
       globPatterns: ['**/*.{js,css,html,png,svg,ico}']
     },
     devOptions: {
-      enabled: true,
+      enabled: false, // Turn off PWA in dev mode to prevent 'non-precached-url' console spam
       type: 'module'
     }
   },
