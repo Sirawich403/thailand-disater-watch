@@ -180,9 +180,9 @@
           <!-- Evacuation Route -->
           <template v-if="showEvacuation">
             <LMarker :lat-lng="evacuationTarget">
-              <LIcon :icon-size="[36, 36]" :icon-anchor="[18, 18]">
-                <div class="custom-marker safe">
-                  <span class="custom-marker-icon">🏥</span>
+              <LIcon :icon-size="[40, 40]" :icon-anchor="[20, 20]" class-name="station-icon-transparent">
+                <div class="shelter-marker">
+                  <span class="material-symbols-rounded" style="font-size: 22px; color: #fff;">night_shelter</span>
                   <div class="report-pulse safe" style="animation-duration: 2s; opacity: 0.6"></div>
                 </div>
               </LIcon>
@@ -916,6 +916,20 @@ function getRainIntensityLabel(intensity) {
 </script>
 
 <style scoped>
+/* Shelter marker */
+.shelter-marker {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #15803d, #22c55e);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.4);
+  position: relative;
+}
+
 /* Station pin markers */
 .station-pin {
   width: 32px;
