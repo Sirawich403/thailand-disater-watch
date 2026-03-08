@@ -90,10 +90,72 @@ const messages = ref([
 
 function renderMarkdown(text) {
   if (!text) return ''
-  // Use marked to parse markdown to HTML
   const rawHtml = marked.parse(text)
-  // Use DOMPurify to sanitize the HTML to prevent XSS
   return DOMPurify.sanitize(rawHtml)
+}
+
+/**
+ * Fetch current dashboard data and build a text summary for the AI context.
+ * This data is already cached on the server (3 min TTL) so it's fast.
+ */
+async function getDashboardContext() {
+  try {
+    const [summary, fires, aqi, rain] = await Promise.allSettled([
+      $fetch('/api/dashboard/summary').catch(() => null),
+      $fetch('/api/dashboard/fires').catch(() => null),
+      $fetch('/api/dashboard/aqi').catch(() => null),
+      $fetch('/api/dashboard/rain').catch(() => null),
+    ])
+
+    const waterData = summary.status === 'fulfilled' ? summary.value : null
+    const fireData = fires.status === 'fulfilled' ? fires.value : null
+    const aqiData = aqi.status === 'fulfilled' ? aqi.value : null
+    const rainData = rain.status === 'fulfilled' ? rain.value : null
+
+    let ctx = `[ข้อมูลภัยพิบัติปัจจุบัน (Real-time)]\nเวลา: ${new Date().toLocaleString('th-TH')}\n`
+
+    // Water data
+    if (waterData?.stations?.length > 0) {
+      const critical = waterData.stations.filter(s => s.riskLevel === 'danger' || s.riskLevel === 'critical')
+      const warning = waterData.stations.filter(s => s.riskLevel === 'warning')
+      ctx += `- สถานการณ์น้ำ: สถานีวิกฤต ${critical.length} แห่ง, เฝ้าระวัง ${warning.length} แห่ง\n`
+      if (critical.length > 0) {
+        ctx += `  สถานีวิกฤต: ${critical.slice(0, 10).map(s => `${s.name} (${s.currentLevel?.toFixed?.(2) || '?'}m, ${s.description || ''})`).join(', ')}\n`
+      }
+      if (warning.length > 0) {
+        ctx += `  สถานีเฝ้าระวัง: ${warning.slice(0, 10).map(s => `${s.name} (${s.currentLevel?.toFixed?.(2) || '?'}m, ${s.description || ''})`).join(', ')}\n`
+      }
+    } else {
+      ctx += `- สถานการณ์น้ำ: ไม่มีข้อมูลในขณะนี้\n`
+    }
+
+    // Fire data
+    if (fireData?.fires?.length > 0) {
+      ctx += `- สถานการณ์ไฟป่า (FIRMS): พบจุดความร้อนในไทย ${fireData.activeCount || 0} จุด\n`
+      ctx += `  จุดไฟป่า: ${fireData.fires.slice(0, 15).map(f => `${f.province || f.name} (ระดับ ${f.intensity || f.intensityLevel})`).join(', ')}\n`
+    } else {
+      ctx += `- สถานการณ์ไฟป่า: ไม่มีข้อมูลในขณะนี้\n`
+    }
+
+    // AQI data
+    if (aqiData?.stations?.length > 0) {
+      ctx += `- คุณภาพอากาศ (PM2.5): ${aqiData.stations.slice(0, 15).map(s => `${s.name} (AQI ${s.aqi || 0}, PM2.5 ${s.pm25 || '-'})`).join(', ')}\n`
+    } else {
+      ctx += `- คุณภาพอากาศ: ไม่มีข้อมูลในขณะนี้\n`
+    }
+
+    // Rain data
+    if (rainData?.rainStations?.length > 0) {
+      ctx += `- ข้อมูลฝนตก (เรียงจากหนัก→เบา): ${rainData.rainStations.slice(0, 15).map(s => `${s.province}-${s.amphoe} (${s.rain24h}mm)`).join(', ')}\n`
+    } else {
+      ctx += `- ข้อมูลฝนตก: ไม่มีรายงานฝนตกหนัก\n`
+    }
+
+    return ctx
+  } catch (e) {
+    console.error('[Chatbot] Failed to fetch dashboard context:', e)
+    return ''
+  }
 }
 
 async function sendMessage() {
@@ -104,6 +166,9 @@ async function sendMessage() {
   inputMsg.value = ''
   isLoading.value = true
   scrollToBottom()
+  
+  // Get current dashboard data for context
+  const context = await getDashboardContext()
   
   // Exclude the very first welcome message and the message we just added to send as history
   const history = messages.value.slice(1, -1).map(m => ({
@@ -116,7 +181,8 @@ async function sendMessage() {
       method: 'POST',
       body: { 
         message: userMsg,
-        history: history 
+        history: history,
+        context: context,
       }
     })
     
@@ -291,7 +357,7 @@ function scrollToBottom() {
 }
 
 [data-theme="light"] .markdown-body :deep(strong) {
-  color: #0284c7; /* darker blue for light mode */
+  color: #0284c7;
 }
 
 .chat-input-area {
