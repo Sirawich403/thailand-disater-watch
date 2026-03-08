@@ -30,7 +30,21 @@ export default defineEventHandler(async (event) => {
         const { fetchAirQualityData } = await import('../utils/airQuality')
         const { fetchRealRainData } = await import('../utils/realTimeData')
 
-        const aqiData = await fetchAirQualityData?.().catch(() => ({ aqi: 'ไม่มีข้อมูล', pm25: 'ไม่มีข้อมูล', level: 'ไม่มีข้อมูล', province: 'เชียงใหม่' })) || { aqi: 'ไม่มีข้อมูล', pm25: 'ไม่มีข้อมูล', level: 'ไม่มีข้อมูล', province: 'เชียงใหม่' }
+        const aqiRaw = await fetchAirQualityData?.().catch(() => null)
+        let aqiContext = '- ข้อมูลอากาศ (PM2.5): ไม่มีรายงานในขณะนี้'
+
+        if (aqiRaw && aqiRaw.stations && aqiRaw.stations.length > 0) {
+            // Find Chiang Mai and Chiang Rai as examples, and also the worst city
+            const cm = aqiRaw.stations.find((s: any) => s.name === 'เชียงใหม่')
+            const cr = aqiRaw.stations.find((s: any) => s.name === 'เชียงราย')
+            const worst = [...aqiRaw.stations].sort((a, b) => (b.pm25 || 0) - (a.pm25 || 0))[0]
+
+            aqiContext = `- ข้อมูลอากาศ (PM2.5): 
+  - เชียงใหม่: AQI ${cm?.aqi || '-'}, PM2.5 = ${cm?.pm25 || '-'} µg/m³ (${cm?.label || '-'})
+  - เชียงราย: AQI ${cr?.aqi || '-'}, PM2.5 = ${cr?.pm25 || '-'} µg/m³ (${cr?.label || '-'})
+  - แย่สุดประเทศตอนนี้: ${worst?.name} (AQI ${worst?.aqi}, PM2.5 ${worst?.pm25})`
+        }
+
         const rainData = await fetchRealRainData?.().catch(() => ({ rainingProvinces: [] })) || { rainingProvinces: [] }
 
         // Format water status
@@ -44,7 +58,7 @@ export default defineEventHandler(async (event) => {
 ${criticalStations.length > 0 ? `  สถานีวิกฤต: ${criticalStations.map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
 - สถานการณ์ไฟป่า (ความร้อนจาก FIRMS): พบจุดความร้อนเสี่ยงในไทย ${fireData.activeCount} จุดความร้อนย่อย
 ${fireData.fires && fireData.fires.length > 0 ? `  พิกัดไฟป่ารุนแรง: ${fireData.fires.slice(0, 3).map((f: any) => `${f.name} (ระดับความรุนแรง: ${f.intensity})`).join(', ')}` : ''}
-- ข้อมูลอากาศ (PM2.5): ล่าสุดที่จังหวัด ${aqiData.province || 'เชียงใหม่'} ค่า AQI = ${aqiData.aqi || '-'}, PM2.5 = ${aqiData.pm25 || '-'} µg/m³ (ระดับ: ${aqiData.level || '-'})
+${aqiContext}
 - ข้อมูลฝนตก: ${rainData.rainingProvinces && rainData.rainingProvinces.length > 0 ? `ตอนนี้มีฝนตกที่จังหวัด ${rainData.rainingProvinces.join(', ')}` : 'ตอนนี้ยังไม่มีรายงานฝนตกหนักในพื้นที่เฝ้าระวัง'}
 `
     } catch (e) {
