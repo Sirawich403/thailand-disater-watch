@@ -437,12 +437,16 @@ export async function fetchRealRainData() {
             } catch (e) { /* skip */ }
         }
 
+        // Extract unique provinces that have rain
+        const rainingProvinces = [...new Set(rainStations.filter((s: any) => s.province).map((s: any) => s.province))]
+
         const result = {
             timestamp: new Date().toISOString(),
             source: 'ThaiWater API (HII)',
             dataDelay: 'Real-time — ข้อมูลสดจากสถานีวัดฝนทั่วประเทศ',
             totalStations: rainStations.length,
             rainStations,
+            rainingProvinces,
         }
 
         setCache('rain', result)
