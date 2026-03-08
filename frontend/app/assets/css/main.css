@@ -766,33 +766,95 @@ body {
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   box-shadow: var(--shadow-card);
+  max-width: 220px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .map-overlay {
+  background: rgba(30, 41, 59, 0.95);
+}
+
+.map-overlay.collapsed {
+  padding: 0.4rem 0.6rem;
+}
+
+.map-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  gap: 8px;
+  user-select: none;
 }
 
 .map-overlay-title {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 0.5rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.legend-toggle-icon {
+  font-size: 18px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+
+.legend-body {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
+  gap: 6px;
+  font-size: 0.72rem;
   color: var(--text-secondary);
-  padding: 2px 0;
+  padding: 1.5px 0;
 }
 
 .legend-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+.legend-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 3px 0;
+}
+
+@media (max-width: 768px) {
+  .map-overlay {
+    top: 0.5rem;
+    left: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    max-width: 160px;
+  }
+
+  .map-overlay-title {
+    font-size: 0.62rem;
+  }
+
+  .legend-item {
+    font-size: 0.65rem;
+    gap: 4px;
+  }
+
+  .legend-dot {
+    width: 7px;
+    height: 7px;
+  }
+}
+
 
 /* ============================================
    Prediction Card
@@ -1185,16 +1247,20 @@ body {
    ============================================ */
 
 @keyframes shimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0% {
+    background-position: -400px 0;
+  }
+
+  100% {
+    background-position: 400px 0;
+  }
 }
 
 .skeleton {
   background: linear-gradient(90deg,
-    rgba(29, 78, 216, 0.04) 25%,
-    rgba(29, 78, 216, 0.08) 50%,
-    rgba(29, 78, 216, 0.04) 75%
-  );
+      rgba(29, 78, 216, 0.04) 25%,
+      rgba(29, 78, 216, 0.08) 50%,
+      rgba(29, 78, 216, 0.04) 75%);
   background-size: 800px 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-md);
@@ -1202,10 +1268,9 @@ body {
 
 [data-theme="dark"] .skeleton {
   background: linear-gradient(90deg,
-    rgba(148, 163, 184, 0.06) 25%,
-    rgba(148, 163, 184, 0.12) 50%,
-    rgba(148, 163, 184, 0.06) 75%
-  );
+      rgba(148, 163, 184, 0.06) 25%,
+      rgba(148, 163, 184, 0.12) 50%,
+      rgba(148, 163, 184, 0.06) 75%);
   background-size: 800px 100%;
 }
 
@@ -1237,9 +1302,19 @@ body {
   border-radius: 4px;
 }
 
-.skeleton-line.short { width: 50%; }
-.skeleton-line.medium { width: 70%; height: 20px; }
-.skeleton-line.tiny { width: 40%; height: 10px; }
+.skeleton-line.short {
+  width: 50%;
+}
+
+.skeleton-line.medium {
+  width: 70%;
+  height: 20px;
+}
+
+.skeleton-line.tiny {
+  width: 40%;
+  height: 10px;
+}
 
 .skeleton-map {
   height: 520px;

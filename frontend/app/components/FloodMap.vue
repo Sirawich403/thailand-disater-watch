@@ -495,43 +495,50 @@
         </button>
       </div>
 
-      <!-- Map Legend Overlay -->
-      <div class="map-overlay">
-        <div class="map-overlay-title">สัญลักษณ์</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: #22c55e"></div>
-          <span>ปกติ (Safe)</span>
+      <!-- Map Legend Overlay (Collapsible) -->
+      <div class="map-overlay" :class="{ collapsed: !legendExpanded }">
+        <div class="map-overlay-header" @click="legendExpanded = !legendExpanded">
+          <div class="map-overlay-title">สัญลักษณ์</div>
+          <span class="material-symbols-rounded legend-toggle-icon">
+            {{ legendExpanded ? 'expand_less' : 'expand_more' }}
+          </span>
         </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: #f59e0b"></div>
-          <span>เฝ้าระวัง (Warning)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: #ef4444"></div>
-          <span>วิกฤต (Critical)</span>
-        </div>
-        <div class="legend-divider"></div>
-        <div class="legend-item">
-          <span style="font-size: 12px; flex-shrink: 0;">🔥</span>
-          <span>จุดไฟไหม้</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-ring"></div>
-          <span>รัศมีลุกลาม (คาดการณ์)</span>
-        </div>
-        <div class="legend-divider" v-if="reports.length > 0"></div>
-        <div class="legend-item" v-if="reports.length > 0">
-          <span style="font-size: 12px; flex-shrink: 0;">📢</span>
-          <span>แจ้งเหตุจากชุมชน</span>
-        </div>
-        <div class="legend-divider"></div>
-        <div class="legend-item">
-          <span style="font-size: 12px; flex-shrink: 0;">🌧️</span>
-          <span>ฝนตก (Real-time)</span>
-        </div>
-        <div class="legend-item" v-if="showRainDirection">
-          <span style="font-size: 10px; flex-shrink: 0; color: #3b82f6;">➜ ┈</span>
-          <span>พยากรณ์ทิศทางฝน (1-3 ชม.)</span>
+        <div class="legend-body" v-show="legendExpanded">
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #22c55e"></div>
+            <span>ปกติ (Safe)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #f59e0b"></div>
+            <span>เฝ้าระวัง (Warning)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #ef4444"></div>
+            <span>วิกฤต (Critical)</span>
+          </div>
+          <div class="legend-divider"></div>
+          <div class="legend-item">
+            <span style="font-size: 12px; flex-shrink: 0;">🔥</span>
+            <span>จุดไฟไหม้</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-ring"></div>
+            <span>รัศมีลุกลาม (คาดการณ์)</span>
+          </div>
+          <div class="legend-divider" v-if="reports.length > 0"></div>
+          <div class="legend-item" v-if="reports.length > 0">
+            <span style="font-size: 12px; flex-shrink: 0;">📢</span>
+            <span>แจ้งเหตุจากชุมชน</span>
+          </div>
+          <div class="legend-divider"></div>
+          <div class="legend-item">
+            <span style="font-size: 12px; flex-shrink: 0;">🌧️</span>
+            <span>ฝนตก (Real-time)</span>
+          </div>
+          <div class="legend-item" v-if="showRainDirection">
+            <span style="font-size: 10px; flex-shrink: 0; color: #3b82f6;">➜ ┈</span>
+            <span>พยากรณ์ทิศทางฝน (1-3 ชม.)</span>
+          </div>
         </div>
       </div>
 
@@ -694,6 +701,9 @@ const showEvacuation = ref(false)
 const showRain = ref(true)
 const showRainDirection = ref(true)
 const showAqi = ref(true)
+
+// Legend toggle — collapsed by default on mobile
+const legendExpanded = ref(typeof window !== 'undefined' ? window.innerWidth > 768 : true)
 
 const userLocation = ref([18.7883, 98.9853]) // Default to Tha Phae Gate
 const evacuationTarget = ref([18.8266, 98.9602]) // Chiang Mai International Exhibition and Convention Centre
