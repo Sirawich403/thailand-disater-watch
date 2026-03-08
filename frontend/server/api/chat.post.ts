@@ -49,22 +49,29 @@ export default defineEventHandler(async (event) => {
 
         let matches: string[] = []
 
-        // Helper to check if a location keyword is in the query (avoiding generic short words)
+        // Helper to intelligently match location keywords against the user query
         const inQ = (kw: string | undefined | null) => {
             if (!kw) return false
-            const word = kw.replace(/^(จ\.|อ\.|ต\.|บ้าน|เมือง)/, '').trim()
-            if (word.length <= 2) return false // Skip very short words to avoid false positives
-            if (['ประเทศไทย', 'กรุงเทพ', 'เหนือ', 'ใต้', 'ออก', 'ตก'].includes(word)) return false // Skip too broad if we want specific
-            return q.includes(word.toLowerCase())
-        }
+            const skipWords = ['ประเทศไทย', 'เหนือ', 'ใต้', 'ออก', 'ตก', 'กลาง', 'สถานี', 'จุดวัด', 'โครงการ', 'อ่างเก็บน้ำ', 'เขื่อน']
 
-        // Exact province match check (for broader scope)
-        const isProvinceMatch = (prov: string | undefined) => prov && q.includes(prov.replace('มหานคร', '').trim())
+            // Remove common prefixes/suffixes that break matching
+            let cleanStr = kw.replace(/(จ\.|อ\.|ต\.|บ้าน|เมือง|มหานคร|สถานีอุตุนิยมวิทยา|สถานี|โครงการ|อ่างเก็บน้ำ|เขื่อน)/g, ' ').trim()
+            if (!cleanStr) return false
+
+            // Split multi-word descriptions (like "แหลมงอบ ตราด") into individual terms
+            const words = cleanStr.split(/[\s,\-]+/).map(w => w.trim()).filter(w => w.length >= 3)
+
+            return words.some(w => {
+                const term = w.toLowerCase()
+                if (skipWords.includes(term)) return false
+                return q.includes(term)
+            })
+        }
 
         if (rainData.status === 'fulfilled') {
             const data = (rainData.value as any)?.rainStations || []
             data.forEach((r: any) => {
-                if (inQ(r.amphoe) || inQ(r.tambon) || inQ(r.stationName) || isProvinceMatch(r.province)) {
+                if (inQ(r.amphoe) || inQ(r.tambon) || inQ(r.stationName) || inQ(r.province)) {
                     matches.push(`[ฝนตก] จ.${r.province} อ.${r.amphoe}: ${r.rain24h}mm`)
                 }
             })
@@ -73,7 +80,7 @@ export default defineEventHandler(async (event) => {
         if (aqiData.status === 'fulfilled') {
             const data = (aqiData.value as any)?.stations || []
             data.forEach((s: any) => {
-                if (inQ(s.name) || inQ(s.nameEn) || isProvinceMatch(s.name)) {
+                if (inQ(s.name) || inQ(s.nameEn) || inQ(s.province) || inQ(s.city)) {
                     matches.push(`[PM2.5] สถานี ${s.name}: AQI=${s.aqi}`)
                 }
             })
@@ -83,7 +90,7 @@ export default defineEventHandler(async (event) => {
             const data = (fireData.value as any)?.fires || []
             let provCount: Record<string, number> = {}
             data.forEach((f: any) => {
-                if (isProvinceMatch(f.province)) {
+                if (inQ(f.province)) {
                     provCount[f.province] = (provCount[f.province] || 0) + 1
                 } else if (inQ(f.name)) {
                     matches.push(`[ไฟป่า] พบที่ ${f.name} จ.${f.province || '?'} (ระดับ ${f.intensity})`)
@@ -97,7 +104,7 @@ export default defineEventHandler(async (event) => {
         if (summary.status === 'fulfilled') {
             const data = (summary.value as any)?.stations || []
             data.forEach((s: any) => {
-                if (inQ(s.name) || inQ(s.description) || isProvinceMatch(s.description)) {
+                if (inQ(s.name) || inQ(s.description) || inQ(s.riverName)) {
                     matches.push(`[ระดับน้ำ] สถานี ${s.name}: ${s.currentLevel}m (${s.riskLevel === 'danger' ? 'วิกฤต' : s.riskLevel === 'warning' ? 'เฝ้าระวัง' : 'ปกติ'})`)
                 }
             })
