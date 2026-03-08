@@ -218,53 +218,67 @@ export async function fetchRealFireData() {
     }
 
     try {
-        // 1) Fetch Thailand fires (primary)
+        console.log('[FIRMS] Starting fire data fetch...')
+        const startTime = Date.now()
+
+        // 1) Fetch Thailand fires (primary) — this is the most important
         const thaiUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${firmsKey}/VIIRS_SNPP_NRT/${CM_BBOX}/1`
 
-        // 2) Fetch regional fires in parallel (5 small queries instead of 1 huge world query)
-        const regionUrls = WORLD_REGIONS.map(r =>
+        // 2) Fetch only 2 key world regions (instead of 5) to save time
+        const keyRegions = WORLD_REGIONS.slice(0, 2) // SE_Asia + S_America
+        const regionUrls = keyRegions.map(r =>
             `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${firmsKey}/VIIRS_SNPP_NRT/${r.bbox}/1`
         )
 
         const [thaiResponse, ...regionResponses] = await Promise.all([
-            $fetch<string>(thaiUrl, { responseType: 'text', timeout: 8000 }).catch(() => ''),
-            ...regionUrls.map(url =>
-                $fetch<string>(url, { responseType: 'text', timeout: 8000 }).catch(() => '')
+            $fetch<string>(thaiUrl, { responseType: 'text', timeout: 6000 }).catch((e) => {
+                console.error('[FIRMS] Thai fetch failed:', e?.message || e)
+                return ''
+            }),
+            ...regionUrls.map((url, i) =>
+                $fetch<string>(url, { responseType: 'text', timeout: 6000 }).catch((e) => {
+                    console.error(`[FIRMS] Region ${keyRegions[i]?.name} failed:`, e?.message || e)
+                    return ''
+                })
             ),
         ])
+
+        console.log(`[FIRMS] API calls completed in ${Date.now() - startTime}ms`)
 
         const thaiRecordsRaw = parseFirmsCsv(thaiResponse)
 
         // ★ Filter: only keep real fires (not thermal anomalies / agricultural burns)
-        //   - confidence "nominal" or "high" only (drop "low")
-        //   - FRP >= 2 MW (filter out tiny heat sources)
         const filterRealFires = (records: FirmsRecord[]) =>
             records.filter(r =>
                 (r.confidence === 'nominal' || r.confidence === 'n' || r.confidence === 'high' || r.confidence === 'h')
                 && (r.frp || 0) >= 2
             )
 
-        const thaiRecords = filterRealFires(thaiRecordsRaw)
-        console.log(`[FIRMS] Thailand raw: ${thaiRecordsRaw.length}, after filter (confidence+FRP≥2): ${thaiRecords.length}`)
+        let thaiRecords = filterRealFires(thaiRecordsRaw)
+        console.log(`[FIRMS] Thailand raw: ${thaiRecordsRaw.length}, after filter: ${thaiRecords.length}`)
 
-        // Merge all regional records, remove duplicates near Thai bbox
+        // ★ Limit to top 100 by FRP to keep clustering fast (O(n²) is expensive)
+        thaiRecords.sort((a, b) => (b.frp || 0) - (a.frp || 0))
+        thaiRecords = thaiRecords.slice(0, 100)
+
+        // Merge regional records
         let worldRecords: FirmsRecord[] = []
         regionResponses.forEach((csv, i) => {
             const records = filterRealFires(parseFirmsCsv(csv))
-            console.log(`[FIRMS] Region ${WORLD_REGIONS[i]!.name}: ${records.length} real fires`)
+            console.log(`[FIRMS] Region ${keyRegions[i]?.name}: ${records.length} real fires`)
             worldRecords.push(...records)
         })
 
-        // Filter out records that fall inside the Thai bbox (already covered)
+        // Filter out records that fall inside the Thai bbox
         worldRecords = worldRecords.filter(r =>
             !(r.latitude >= 5.6 && r.latitude <= 20.5 && r.longitude >= 97.3 && r.longitude <= 105.7)
         )
 
-        // Sort by FRP (fire radiative power) and keep top 200 raw records for clustering
+        // Sort by FRP and keep top 60 for clustering
         worldRecords.sort((a, b) => (b.frp || 0) - (a.frp || 0))
-        worldRecords = worldRecords.slice(0, 200)
+        worldRecords = worldRecords.slice(0, 60)
 
-        console.log(`[FIRMS] Thailand: ${thaiRecords.length} real fires, World (sampled): ${worldRecords.length}`)
+        console.log(`[FIRMS] After limit — Thai: ${thaiRecords.length}, World: ${worldRecords.length}`)
 
         // Process records into fire clusters (5km threshold for grouping)
         const processRecords = (records: FirmsRecord[], prefix: string = 'F') => {
@@ -322,21 +336,31 @@ export async function fetchRealFireData() {
 
         const thaiFires = processRecords(thaiRecords, 'F')
         const allWorldClusters = processRecords(worldRecords, 'W')
-        // Keep only top 20 world fires by intensity + FRP
         const worldFires = allWorldClusters.slice(0, 20)
 
-        // Spread predictions — top 5 fires only (to stay within Vercel timeout)
+        console.log(`[FIRMS] Clusters — Thai: ${thaiFires.length}, World: ${worldFires.length}`)
+
+        // Spread predictions — top 3 fires only, parallel wind data (to stay within Vercel timeout)
+        const predictionFires = thaiFires.length > 0 ? thaiFires.slice(0, 3) : worldFires.slice(0, 3)
+        console.log(`[FIRMS] Computing spread predictions for ${predictionFires.length} fires...`)
+
         const spreadPredictions: any[] = []
-        const predictionFires = thaiFires.length > 0 ? thaiFires.slice(0, 5) : worldFires.slice(0, 5)
-        console.log(`[FIRMS] Computing spread predictions for ${predictionFires.length} fires (${thaiFires.length > 0 ? 'Thai' : 'World'})...`)
-        for (const fire of predictionFires) {
-            try {
-                const wind = await fetchWindData(fire.lat, fire.lng)
-                const pred = predictFireSpread(fire, fire.id, wind)
-                spreadPredictions.push(pred)
-            } catch (e) { /* skip */ }
+        try {
+            const windResults = await Promise.all(
+                predictionFires.map(fire => fetchWindData(fire.lat, fire.lng).catch(() => null))
+            )
+            predictionFires.forEach((fire, i) => {
+                const wind = windResults[i]
+                if (wind) {
+                    const pred = predictFireSpread(fire, fire.id, wind)
+                    spreadPredictions.push(pred)
+                }
+            })
+        } catch (e) {
+            console.error('[FIRMS] Spread predictions failed:', e)
         }
-        console.log(`[FIRMS] Spread predictions computed: ${spreadPredictions.length}`)
+
+        console.log(`[FIRMS] Total time: ${Date.now() - startTime}ms, predictions: ${spreadPredictions.length}`)
 
         const activeCount = thaiFires.length
         const maxIntensity = Math.max(...thaiFires.map((f) => f.intensityLevel), 0)
