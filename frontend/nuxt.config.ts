@@ -57,6 +57,7 @@ export default defineNuxtConfig({
     firmsMapKey: process.env.FIRMS_MAP_KEY || 'e3fa4f5bd9e4a5bb42985652483c4648',
     openweatherApiKey: process.env.OPENWEATHER_API_KEY || '8ce6f77c7b6e231a83834453fdbb2124',
     aqicnApiToken: process.env.AQICN_API_TOKEN || '37e5a6116dce6cb5b9f53436f8370616f68f78f2',
+    geminiApiToken: process.env.GEMINI_API_TOKEN || '',
   },
   nitro: {
     routeRules: {

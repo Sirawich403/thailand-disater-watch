@@ -23,8 +23,13 @@
             class="message-wrapper"
             :class="msg.role"
           >
-            <div class="message-bubble">
+            <!-- User Message: Just text -->
+            <div v-if="msg.role === 'user'" class="message-bubble">
               {{ msg.content }}
+            </div>
+            
+            <!-- Assistant Message: Markdown rendered HTML -->
+            <div v-else class="message-bubble markdown-body" v-html="renderMarkdown(msg.content)">
             </div>
           </div>
           
@@ -68,6 +73,9 @@
 </template>
 
 <script setup>
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+
 const isOpen = ref(false)
 const inputMsg = ref('')
 const isLoading = ref(false)
@@ -80,6 +88,14 @@ const messages = ref([
   }
 ])
 
+function renderMarkdown(text) {
+  if (!text) return ''
+  // Use marked to parse markdown to HTML
+  const rawHtml = marked.parse(text)
+  // Use DOMPurify to sanitize the HTML to prevent XSS
+  return DOMPurify.sanitize(rawHtml)
+}
+
 async function sendMessage() {
   if (!inputMsg.value.trim() || isLoading.value) return
   
@@ -89,10 +105,19 @@ async function sendMessage() {
   isLoading.value = true
   scrollToBottom()
   
+  // Exclude the very first welcome message and the message we just added to send as history
+  const history = messages.value.slice(1, -1).map(m => ({
+    role: m.role,
+    content: m.content
+  }))
+  
   try {
     const { data, error } = await useFetch('/api/chat', {
       method: 'POST',
-      body: { message: userMsg }
+      body: { 
+        message: userMsg,
+        history: history 
+      }
     })
     
     if (error.value) throw error.value
@@ -240,6 +265,35 @@ function scrollToBottom() {
 [data-theme="light"] .assistant .message-bubble {
   background: #f1f5f9;
   border-color: #e2e8f0;
+}
+
+/* Markdown Styles */
+.markdown-body :deep(p) {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-body :deep(ul), .markdown-body :deep(ol) {
+  margin-top: 4px;
+  margin-bottom: 8px;
+  padding-left: 20px;
+}
+
+.markdown-body :deep(li) {
+  margin-bottom: 4px;
+}
+
+.markdown-body :deep(strong) {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+[data-theme="light"] .markdown-body :deep(strong) {
+  color: #0284c7; /* darker blue for light mode */
 }
 
 .chat-input-area {
