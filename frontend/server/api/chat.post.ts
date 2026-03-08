@@ -24,10 +24,10 @@ export default defineEventHandler(async (event) => {
     const systemInstruction = `คุณคือ "Disaster AI Assistant" ผู้ช่วยอัจฉริยะสุดใจดีสำหรับเว็บไซต์ Thailand Disaster Watch
 หน้าที่ของคุณ:
 1. ให้ข้อมูลและคำแนะนำเกี่ยวกับสถานการณ์น้ำท่วม ไฟป่า ฝุ่น PM2.5 และฝนตกในประเทศไทย
-2. ตอบคำถามอย่างเป็นธรรมชาติ เหมือนคนคุยกัน (Conversational AI) ไม่เอาแบบหุ่นยนต์ หรือก็อปปี้ลิสต์ข้อมูลมาแปะทื่อๆ
-3. ใช้ข้อมูลจาก [ข้อมูลภัยพิบัติปัจจุบัน] ที่ระบบส่งให้เสมอ สรุปใจความสำคัญให้เข้าใจง่าย นำเสนอแบบเล่าเรื่องหรืออธิบาย
-4. ใช้ภาษาไทยที่สุภาพ เป็นมิตร กระตือรือร้น (ใช้คำลงท้าย ครับ/ค่ะ สลับกันไปตามเหมาะสม หรือใช้อีโมจิช่วยสื่ออารมณ์ 🌟🌧️🔥)
-5. ใช้ Markdown เช่น **ตัวหนา** สำหรับเน้นคำสำคัญ หรือทำ List สั้นๆ ให้อ่านง่าย
+2. ตอบคำถามเกี่ยวกับการใช้ชีวิตประจำวันหรือความปลอดภัยได้ เช่น "ฝนจะตกไหม", "รอดไหม", "น้ำจะท่วมไหม" โดยวิเคราะห์แจกแจงจากข้อมูลที่มี
+3. ตอบคำถามอย่างเป็นธรรมชาติ เหมือนคนคุยกัน (Conversational AI) ไม่เอาแบบหุ่นยนต์ หรือก็อปปี้ลิสต์ข้อมูลมาแปะทื่อๆ
+4. ใช้ข้อมูลจาก [ข้อมูลภัยพิบัติปัจจุบัน] ที่ระบบส่งให้เสมอ สรุปใจความสำคัญให้เข้าใจง่าย และอธิบายแหล่งที่มาได้ถอนถาม (เช่น NASA, ThaiWater, WAQI)
+5. ใช้ภาษาไทยที่สุภาพ เป็นมิตร กระตือรือร้น (ใช้คำลงท้าย ครับ/ค่ะ สลับกันไปตามเหมาะสม หรือใช้อีโมจิช่วยสื่ออารมณ์ 🌟🌧️🔥)
 6. หากผู้ใช้ถามเรื่องทั่วไปที่นอกเหนือจากภัยพิบัติ สามารถคุยเล่นได้นิดหน่อยแล้วค่อยวกกลับมาเรื่องภัยพิบัติอย่างสุภาพ`
 
     let historyText = ''
@@ -128,10 +128,13 @@ async function generateLocalResponse(question: string, context: string): Promise
 
     if (matchedProvinceObj) {
         const matchedProvince = matchedProvinceObj.replace('มหานคร', '')
-        let isRain = q.includes('ฝน') || q.includes('rain')
-        let isAqi = q.includes('pm2.5') || q.includes('ฝุ่น') || q.includes('อากาศ') || q.includes('aqi')
-        let isFire = q.includes('ไฟ') || q.includes('fire')
-        let isWater = q.includes('น้ำท่วม') || q.includes('น้ำ') || q.includes('ระดับน้ำ')
+
+        let isRain = q.includes('ฝน') || q.includes('rain') || q.includes('ตกไหม') || q.includes('พายุ')
+        let isAqi = q.includes('pm2.5') || q.includes('pm 2.5') || q.includes('ฝุ่น') || q.includes('อากาศ') || q.includes('aqi') || q.includes('ควัน')
+        let isFire = q.includes('ไฟ') || q.includes('fire') || q.includes('ลาม') || q.includes('ไหม้') || q.includes('จุดความร้อน')
+        let isWater = q.includes('น้ำท่วม') || q.includes('น้ำ') || q.includes('ระดับน้ำ') || q.includes('flood') || q.includes('ท่วมไหม')
+
+        let isSafetyQuestion = q.includes('รอด') || q.includes('ปลอดภัย') || q.includes('อันตราย') || q.includes('อยู่บ้าน') || q.includes('เป็นไงบ้าง')
 
         try {
             // Fetch raw data using local internal fetch
@@ -208,8 +211,37 @@ async function generateLocalResponse(question: string, context: string): Promise
                 }
             }
 
+            // If it's a general safety question but no specific disaster was mentioned
+            if (isSafetyQuestion && !isRain && !isAqi && !isFire && !isWater) {
+                let msg = `ตรวจเช็คความปลอดภัยที่ **${matchedProvince}** ให้แล้วค่ะ 🛡️\n\n`
+                let issues = []
+
+                // Quick check across all fetched data for exactly this province
+                const sData = summary.status === 'fulfilled' ? (summary.value as any)?.stations || [] : []
+                const fData = fireData.status === 'fulfilled' ? (fireData.value as any)?.fires || [] : []
+                const aData = aqiData.status === 'fulfilled' ? (aqiData.value as any)?.stations || [] : []
+                const rData = rainData.status === 'fulfilled' ? (rainData.value as any)?.rainStations || [] : []
+
+                const pWater = sData.filter((s: any) => s.name?.includes(matchedProvince) && (s.riskLevel === 'danger' || s.riskLevel === 'critical' || s.riskLevel === 'warning'))
+                const pFire = fData.filter((f: any) => f.province?.includes(matchedProvince) && (f.intensity === 'high' || f.intensity === 'extreme'))
+                const pAqi = aData.filter((a: any) => a.name?.includes(matchedProvince) && a.aqi > 100)
+                const pRain = rData.filter((r: any) => r.province?.includes(matchedProvince) && r.rain24h > 35)
+
+                if (pWater.length > 0) issues.push(`🌊 มีจุดเสี่ยงน้ำท่วม ${pWater.length} แห่ง รบกวนระวังเรื่องน้ำล้นตลิ่ง`)
+                if (pFire.length > 0) issues.push(`🔥 มีไฟป่าค่อนข้างรุนแรง ${pFire.length} จุด ระวังเรื่องลุกลามและควัน`)
+                if (pAqi.length > 0) issues.push(`😷 ค่าฝุ่น PM2.5 เกินมาตรฐาน (${pAqi[0].aqi})`)
+                if (pRain.length > 0) issues.push(`🌧️ มีรายงานฝนตกหนัก (${pRain[0].rain24h}mm) อาจเกิดน้ำขังรอการระบาย`)
+
+                if (issues.length > 0) {
+                    msg += `ตอนนี้มีเรื่องที่ต้องเฝ้าระวังนิดนึงนะคะ:\n${issues.map(i => '- ' + i).join('\n')}\n\nโดยรวมแล้วถ้าไม่ได้อยู่ในพื้นที่เสี่ยงเป๊ะๆ น่าจะรอดปลอดภัยสบายมากค่ะ แต่เตรียมตัวไว้ก่อนก็ดีน้า 💙`
+                    return msg
+                } else {
+                    return `ณ ตอนนี้ **${matchedProvince}** รอดปลอดภัย 100% ค่ะ! 🎉\nไม่มีรายงานจุดวิกฤตน้ำท่วม ฝนตกหนัก ไฟป่ารุนแรง หรือฝุ่นควันหนาแน่นเลย อยู่บ้านสบายใจได้เลยค่ะ 🏡✨`
+                }
+            }
+
             // General province query (no specific intent recognized, just summarize basic)
-            return `📍 สรุปพิกัด **${matchedProvince}**:\nดีกรีความปลอดภัยภาพรวมสูงค่ะ ตอนนี้ระบบไม่ได้แจ้งเตือนระดับวิกฤตที่น่ากังวลนะคะ 🌟\n\nอยากทราบข้อมูลเจาะจงของที่นี่ เช่น พิมพ์ว่า "PM2.5 ที่นี่" หรือ "ระดับน้ำ" ได้เลยค่ะ!`
+            return `📍 สรุปพิกัด **${matchedProvince}**:\nดีกรีความปลอดภัยภาพรวมสูงค่ะ ตอนนี้ระบบไม่ได้แจ้งเตือนระดับวิกฤตที่น่ากังวลนะคะ 🌟\n\nสามารถเจาะจงถามได้เลย เช่น "น้ำจะท่วมไหม", "ฝนตกตรงไหนบ้าง", หรือ "อยู่บ้านปลอดภัยไหม" ค่ะ!`
 
         } catch (e) {
             console.error('[Chat] Failed to fetch context for province', e)
@@ -256,7 +288,7 @@ async function generateLocalResponse(question: string, context: string): Promise
         return `สวัสดีค่ะ! 👋 เราคือ **Disaster AI Assistant** หุ่นยนต์เฝ้าระวังภัยพิบัติแห่งประเทศไทย 🇹🇭\n\nอยากรู้เรื่อง ฝน, น้ำท่วม, ไฟป่า หรือ ฝุ่นควัน ที่จังหวัดไหนในประเทศ พิมพ์ถามฉันได้เลยค่ะ! เช่น "เชียงใหม่ฝนตกไหม" 😊`
     }
 
-    if (q.includes('สรุป') || q.includes('ภาพรวม') || q.includes('ตอนนี้') || q.length < 15) {
+    if (q.includes('สรุป') || q.includes('ภาพรวม') || q.includes('ตอนนี้') || q.includes('ไงบ้าง') || q.includes('เป็นไง') || q.length < 15) {
         let result = 'นี่คือสรุปภาพรวมล่าสุดค่ะ 🌍✨\n\n'
         if (waterLine) result += `💧 **เรื่องน้ำ:** ${cleanLine(waterLine)}\n`
         if (fireLine) result += `🔥 **เรื่องไฟ:** ${cleanLine(fireLine)}\n`
@@ -265,7 +297,12 @@ async function generateLocalResponse(question: string, context: string): Promise
 
         if (!waterLine && !fireLine) result += 'ตอนนี้ข้อมูลกำลังอัปเดตนะคะ อาจจะต้องรอแปปนึง ⏳\n'
 
-        return result + '\nเจาะจงจังหวัดไหนพิเศษไหมคะ พิมพ์บอกมาได้เลย 💬'
+        return result + '\nถ้าอยากรู้ว่าบ้านตัวเองรอดรึเปล่า ลองถามโดยพิมพ์ **ชื่อจังหวัด** มาดูสิคะ 💬'
+    }
+
+    // New catch-all for system/meta questions
+    if (q.includes('ระบบนี้') || q.includes('คืออะไร') || q.includes('ใช้งานยังไง') || q.includes('แหล่งข้อมูล') || q.includes('มาจากไหน') || q.includes('ใครทำ')) {
+        return `🤖 **เกี่ยวกับระบบ Thailand Disaster Watch**\n\nระบบนี้ถูกสร้างขึ้นมาเพื่อเป็น Dashboard ศูนย์กลางรวมข้อมูลภัยพิบัติของประเทศไทยแบบ Real-time ค่ะ โดยติดตาม 4 เรื่องหลัก:\n1. 💧 **ระดับน้ำ/น้ำท่วม** (ข้อมูลจาก สสน. ThaiWater)\n2. 🌧️ **ปริมาณฝนสะสม** (ข้อมูลจาก สสน. ThaiWater)\n3. 🔥 **จุดความร้อน/ไฟป่า** (ข้อมูลจากดาวเทียม NASA FIRMS)\n4. 😷 **คุณภาพอากาศ PM2.5** (ข้อมูลดัชนี AQI โลก)\n\n**วิธีใช้งานแชทบอท:**\nคุณสามารถถามคำถามแบบเป็นกันเองได้เลย เช่น:\n- "เชียงใหม่ฝนตกไหม"\n- "น้ำจะท่วมบ้านรึเปล่า (พร้อมบอกจังหวัด)"\n- "สรุปสถานการณ์ระดับน้ำล่าสุดหน่อย"\n\nยินดีให้บริการเสมอค่ะ 💙`
     }
 
     return `รับทราบค่ะ 🌟 แต่เพื่อให้ AI ช่วยหาคำตอบได้แม่นยำขึ้น รบกวนพิมพ์ระบุพิกัดชัดๆ หน่อยนะคะ เช่น:\n\n- "PM2.5 ที่ขอนแก่นตอนนี้"\n- "ร้อยเอ็ดฝนตกไหม"\n- "สถานการณ์น้ำลพบุรี"\n\nหรือถ้าอยากดูทุกอย่างรวมกัน พิมพ์ "สรุปภาพรวม" ได้เลยค่ะ 💙`
