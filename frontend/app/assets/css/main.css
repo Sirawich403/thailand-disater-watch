@@ -1181,6 +1181,204 @@ body {
 }
 
 /* ============================================
+   Skeleton Loading
+   ============================================ */
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(29, 78, 216, 0.04) 25%,
+    rgba(29, 78, 216, 0.08) 50%,
+    rgba(29, 78, 216, 0.04) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg,
+    rgba(148, 163, 184, 0.06) 25%,
+    rgba(148, 163, 184, 0.12) 50%,
+    rgba(148, 163, 184, 0.06) 75%
+  );
+  background-size: 800px 100%;
+}
+
+.skeleton-stat-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.skeleton-stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-stat-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+}
+
+.skeleton-line.short { width: 50%; }
+.skeleton-line.medium { width: 70%; height: 20px; }
+.skeleton-line.tiny { width: 40%; height: 10px; }
+
+.skeleton-map {
+  height: 520px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  gap: 8px;
+}
+
+.skeleton-map .material-symbols-rounded {
+  font-size: 28px;
+  opacity: 0.5;
+}
+
+.skeleton-station {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.skeleton-station-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-station-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-station-value {
+  width: 60px;
+  height: 28px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.skeleton-fire-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-fire-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skeleton-fire-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.skeleton-fire-card {
+  height: 80px;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-chart {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-chart-bars {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 1rem;
+}
+
+.skeleton-chart-bar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  min-width: 20px;
+}
+
+.skeleton-inline-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  min-height: 200px;
+}
+
+.skeleton-inline-error .material-symbols-rounded {
+  font-size: 24px;
+  color: var(--color-warning);
+}
+
+.skeleton-inline-error button {
+  margin-left: 8px;
+  padding: 4px 12px;
+  background: rgba(29, 78, 216, 0.08);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.skeleton-inline-error button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ============================================
    Leaflet Popup Override
    ============================================ */
 

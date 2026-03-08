@@ -1,21 +1,7 @@
 <template>
   <div>
-    <!-- Loading Overlay -->
-    <div v-if="isPending" class="loading-overlay">
-      <div class="spinner"></div>
-      <div>กำลังโหลดข้อมูล...</div>
-    </div>
-
-    <!-- Error State -->
-    <div v-else-if="isError" class="error-overlay">
-      <span class="material-symbols-rounded">error</span>
-      <div>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</div>
-      <button class="retry-btn" @click="retryFetch">ลองใหม่อีกครั้ง</button>
-    </div>
-
-    <div v-else>
       <!-- Alert Banner -->
-      <AlertBanner :risk-level="overallRisk" :stations="dashboardStations" :fires="firesList" @view-map="handleViewMap" />
+      <AlertBanner v-if="!pendingDashboard" :risk-level="overallRisk" :stations="dashboardStations" :fires="firesList" @view-map="handleViewMap" />
 
       <!-- View Mode Toggle -->
       <div class="view-toggle-bar">
@@ -100,85 +86,106 @@
 
     <!-- Summary Stats (Thai mode only) -->
     <div v-if="viewMode === 'thailand'" class="stats-bar">
-      <div class="stat-item">
-        <div class="stat-icon water">
-          <span class="material-symbols-rounded">water_drop</span>
-        </div>
-        <div class="stat-info">
-          <div class="stat-label">สถานีวิกฤตสูงสุด</div>
-          <div class="stat-value">{{ p1Level.toFixed(2) }} m</div>
-          <div class="stat-change" :class="p1Trend > 0 ? 'up' : 'down'">
-            {{ p1Trend > 0 ? '▲' : '▼' }} {{ Math.abs(p1Trend).toFixed(2) }}m/ชม.
+      <!-- Skeleton Stats -->
+      <template v-if="pendingDashboard || pendingFire">
+        <div v-for="i in 7" :key="'skel-stat-'+i" class="skeleton-stat-item">
+          <div class="skeleton skeleton-stat-icon"></div>
+          <div class="skeleton-stat-lines">
+            <div class="skeleton skeleton-line short"></div>
+            <div class="skeleton skeleton-line medium"></div>
+            <div class="skeleton skeleton-line tiny"></div>
           </div>
         </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-icon rain">
-          <span class="material-symbols-rounded">rainy</span>
+      </template>
+      <!-- Real Stats -->
+      <template v-else>
+        <div class="stat-item">
+          <div class="stat-icon water">
+            <span class="material-symbols-rounded">water_drop</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">สถานีวิกฤตสูงสุด</div>
+            <div class="stat-value">{{ p1Level.toFixed(2) }} m</div>
+            <div class="stat-change" :class="p1Trend > 0 ? 'up' : 'down'">
+              {{ p1Trend > 0 ? '▲' : '▼' }} {{ Math.abs(p1Trend).toFixed(2) }}m/ชม.
+            </div>
+          </div>
         </div>
-        <div class="stat-info">
-          <div class="stat-label">ฝนสะสม 24 ชม.</div>
-          <div class="stat-value">{{ totalRain.toFixed(1) }} mm</div>
-          <div class="stat-change" style="color: var(--text-muted)">ทุกสถานีรวม</div>
+        <div class="stat-item">
+          <div class="stat-icon rain">
+            <span class="material-symbols-rounded">rainy</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">ฝนสะสม 24 ชม.</div>
+            <div class="stat-value">{{ totalRain.toFixed(1) }} mm</div>
+            <div class="stat-change" style="color: var(--text-muted)">ทุกสถานีรวม</div>
+          </div>
         </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-icon risk">
-          <span class="material-symbols-rounded">shield</span>
+        <div class="stat-item">
+          <div class="stat-icon risk">
+            <span class="material-symbols-rounded">shield</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">ระดับความเสี่ยง</div>
+            <div class="stat-value" :style="{ color: riskColor }">{{ riskLabelTh }}</div>
+            <div class="stat-change" style="color: var(--text-muted)">จาก ThaiWater API (Real-time)</div>
+          </div>
         </div>
-        <div class="stat-info">
-          <div class="stat-label">ระดับความเสี่ยง</div>
-          <div class="stat-value" :style="{ color: riskColor }">{{ riskLabelTh }}</div>
-          <div class="stat-change" style="color: var(--text-muted)">จาก ThaiWater API (Real-time)</div>
+        <div class="stat-item">
+          <div class="stat-icon fire">
+            <span class="material-symbols-rounded">local_fire_department</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">จุดไฟไทย (FIRMS)</div>
+            <div class="stat-value" :style="{ color: fireCountColor }">{{ activeFireCount }} จุด</div>
+            <div class="stat-change" style="color: var(--text-muted)">โลก {{ worldFireCount }} • NRT ~3 ชม.</div>
+          </div>
         </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-icon fire">
-          <span class="material-symbols-rounded">local_fire_department</span>
+        <div class="stat-item">
+          <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6">
+            <span class="material-symbols-rounded">rainy</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">ฝนตก (Real-time)</div>
+            <div class="stat-value" style="color: #3b82f6">{{ rainStationCount }} สถานี</div>
+            <div class="stat-change" style="color: var(--text-muted)">ThaiWater API</div>
+          </div>
         </div>
-        <div class="stat-info">
-          <div class="stat-label">จุดไฟไทย (FIRMS)</div>
-          <div class="stat-value" :style="{ color: fireCountColor }">{{ activeFireCount }} จุด</div>
-          <div class="stat-change" style="color: var(--text-muted)">โลก {{ worldFireCount }} • NRT ~3 ชม.</div>
+        <div class="stat-item">
+          <div class="stat-icon" :style="{ background: aqiIconBg, color: aqiIconColor }">
+            <span class="material-symbols-rounded">air</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">PM2.5 / AQI</div>
+            <div class="stat-value" :style="{ color: aqiIconColor }">{{ worstAqi }}</div>
+            <div class="stat-change" style="color: var(--text-muted)">{{ worstAqiCity }}</div>
+          </div>
         </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6">
-          <span class="material-symbols-rounded">rainy</span>
+        <div class="stat-item">
+          <div class="stat-icon time">
+            <span class="material-symbols-rounded">schedule</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-label">อัปเดตล่าสุด</div>
+            <div class="stat-value" style="font-size: 1rem">{{ lastUpdate }}</div>
+            <div class="stat-change" style="color: var(--text-muted)">อัปเดตทุก 5 นาที</div>
+          </div>
         </div>
-        <div class="stat-info">
-          <div class="stat-label">ฝนตก (Real-time)</div>
-          <div class="stat-value" style="color: #3b82f6">{{ rainStationCount }} สถานี</div>
-          <div class="stat-change" style="color: var(--text-muted)">ThaiWater API</div>
-        </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-icon" :style="{ background: aqiIconBg, color: aqiIconColor }">
-          <span class="material-symbols-rounded">air</span>
-        </div>
-        <div class="stat-info">
-          <div class="stat-label">PM2.5 / AQI</div>
-          <div class="stat-value" :style="{ color: aqiIconColor }">{{ worstAqi }}</div>
-          <div class="stat-change" style="color: var(--text-muted)">{{ worstAqiCity }}</div>
-        </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-icon time">
-          <span class="material-symbols-rounded">schedule</span>
-        </div>
-        <div class="stat-info">
-          <div class="stat-label">อัปเดตล่าสุด</div>
-          <div class="stat-value" style="font-size: 1rem">{{ lastUpdate }}</div>
-          <div class="stat-change" style="color: var(--text-muted)">อัปเดตทุก 5 นาที</div>
-        </div>
-      </div>
+      </template>
     </div>
 
     <!-- Dashboard Grid (Thai mode only) -->
     <div v-if="viewMode === 'thailand'" class="dashboard-grid">
       <!-- Map -->
       <div class="map-section">
+        <!-- Skeleton Map -->
+        <div v-if="pendingDashboard" class="skeleton skeleton-map">
+          <span class="material-symbols-rounded">map</span>
+          กำลังโหลดแผนที่...
+        </div>
+        <!-- Real Map -->
         <FloodMap
+          v-else
           ref="floodMapRef"
           :stations="dashboardStations"
           :fires="firesList"
@@ -204,25 +211,39 @@
               <span class="material-symbols-rounded">sensors</span>
               สถานีตรวจวัด
             </div>
-            <span class="station-count-badge">{{ dashboardStations.length }} แห่ง</span>
+            <span class="station-count-badge">{{ pendingDashboard ? '...' : dashboardStations.length + ' แห่ง' }}</span>
           </div>
-          <div class="stations-list" :class="{ expanded: showAllStations }">
-            <StationCard
-              v-for="station in visibleStations"
-              :key="station.id"
-              :station="station"
-              :is-active="selectedStationId === station.id"
-              @select="selectStation"
-            />
+          <!-- Skeleton Stations -->
+          <div v-if="pendingDashboard" class="stations-list">
+            <div v-for="i in 4" :key="'skel-st-'+i" class="skeleton-station">
+              <div class="skeleton skeleton-station-icon"></div>
+              <div class="skeleton-station-info">
+                <div class="skeleton skeleton-line" style="width: 65%"></div>
+                <div class="skeleton skeleton-line tiny"></div>
+              </div>
+              <div class="skeleton skeleton-station-value"></div>
+            </div>
           </div>
-          <button
-            v-if="dashboardStations.length > 5"
-            class="show-more-btn"
-            @click="showAllStations = !showAllStations"
-          >
-            <span class="material-symbols-rounded">{{ showAllStations ? 'expand_less' : 'expand_more' }}</span>
-            {{ showAllStations ? 'แสดงน้อยลง' : `ดูเพิ่มเติม (${dashboardStations.length - 5} สถานี)` }}
-          </button>
+          <!-- Real Stations -->
+          <template v-else>
+            <div class="stations-list" :class="{ expanded: showAllStations }">
+              <StationCard
+                v-for="station in visibleStations"
+                :key="station.id"
+                :station="station"
+                :is-active="selectedStationId === station.id"
+                @select="selectStation"
+              />
+            </div>
+            <button
+              v-if="dashboardStations.length > 5"
+              class="show-more-btn"
+              @click="showAllStations = !showAllStations"
+            >
+              <span class="material-symbols-rounded">{{ showAllStations ? 'expand_less' : 'expand_more' }}</span>
+              {{ showAllStations ? 'แสดงน้อยลง' : `ดูเพิ่มเติม (${dashboardStations.length - 5} สถานี)` }}
+            </button>
+          </template>
         </div>
 
         <PredictionPanel :station="selectedStation" />
@@ -230,7 +251,18 @@
 
       <!-- Fire Spread Prediction -->
       <div class="fire-section">
+        <!-- Skeleton Fire Panel -->
+        <div v-if="pendingFire" class="skeleton-fire-panel">
+          <div class="skeleton-fire-header">
+            <div class="skeleton skeleton-line" style="width: 30%; height: 16px"></div>
+          </div>
+          <div class="skeleton-fire-cards">
+            <div v-for="i in 3" :key="'skel-fire-'+i" class="skeleton skeleton-fire-card"></div>
+          </div>
+        </div>
+        <!-- Real Fire Panel -->
         <FireSpreadPanel
+          v-else
           :fires="firesList"
           :selected-fire-id="selectedFireId"
           @select-fire="handleFireSelect"
@@ -239,13 +271,21 @@
 
       <!-- Chart -->
       <div class="chart-section">
+        <!-- Skeleton Chart -->
+        <div v-if="pendingDashboard" class="skeleton-chart">
+          <div class="skeleton skeleton-line" style="width: 25%; height: 16px"></div>
+          <div class="skeleton-chart-bars">
+            <div v-for="i in 12" :key="'skel-bar-'+i" class="skeleton skeleton-chart-bar" :style="{ height: (20 + Math.random() * 60) + '%' }"></div>
+          </div>
+        </div>
+        <!-- Real Chart -->
         <WaterLevelChart
+          v-else
           :station-id="selectedStationId"
           :station-name="selectedStation?.name || 'สถานี'"
         />
       </div>
     </div> <!-- End dashboard-grid -->
-    </div> <!-- End v-else -->
 
     <!-- Modals -->
     <ReportForm
@@ -321,9 +361,8 @@ function focusWorldDisaster(disaster) {
   }
 }
 
-// Combined loading and error states
-const isPending = computed(() => pendingDashboard.value || pendingFire.value || pendingReports.value || pendingRain.value)
-const isError = computed(() => errorDashboard.value || errorFire.value || errorReports.value)
+// Note: Loading states are now handled per-section in the template (skeleton loading)
+// const isPending/isError removed — each section shows its own skeleton/error
 
 function retryFetch() {
   refreshDashboard()
@@ -478,7 +517,7 @@ function handleFireSelect(id) {
   }
 }
 
-// Auto-refresh every 60 seconds
+// Auto-refresh every 5 minutes (matches server cache TTL of 3 min)
 let refreshTimer = null
 onMounted(() => {
   // Auto-select first fire
@@ -486,8 +525,9 @@ onMounted(() => {
     selectedFireId.value = firesList.value[0].id
   }
   refreshTimer = setInterval(async () => {
+    console.log('[Auto-refresh] Refreshing all data...')
     await refreshNuxtData()
-  }, 60000)
+  }, 5 * 60 * 1000) // 5 minutes
 })
 
 onUnmounted(() => {

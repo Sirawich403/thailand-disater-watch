@@ -43,7 +43,7 @@ interface CacheEntry<T> {
 }
 
 const cache: Record<string, CacheEntry<any>> = {}
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes (more real-time)
+const CACHE_TTL = 3 * 60 * 1000 // 3 minutes — tight enough for near real-time, loose enough to avoid rate limits
 
 function getCached<T>(key: string): T | null {
     const entry = cache[key]
@@ -195,6 +195,16 @@ function generateFireSpreadPrediction(fire: any) {
     return predictions
 }
 
+// Regional bounding boxes for global top-20 fire sampling
+// (much smaller than world/1 — each returns quickly)
+const WORLD_REGIONS: { name: string; bbox: string }[] = [
+    { name: 'SE_Asia', bbox: '90,0,130,25' },      // SE Asia + India
+    { name: 'S_America', bbox: '-80,-35,-35,5' },     // Amazon / S America
+    { name: 'C_Africa', bbox: '10,-15,40,15' },      // Central Africa
+    { name: 'S_Europe', bbox: '-10,35,45,50' },      // Southern Europe / Mediterranean
+    { name: 'Australia', bbox: '110,-45,155,-10' },   // Australia
+]
+
 export async function fetchRealFireData() {
     const cached = getCached<any>('fires')
     if (cached) return cached
@@ -208,25 +218,58 @@ export async function fetchRealFireData() {
     }
 
     try {
-        // Fetch Thailand fires (primary) + World fires (for "show all")
+        // 1) Fetch Thailand fires (primary)
         const thaiUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${firmsKey}/VIIRS_SNPP_NRT/${CM_BBOX}/1`
-        const worldUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${firmsKey}/VIIRS_SNPP_NRT/world/1`
 
-        // Fetch both in parallel
-        const [thaiResponse, worldResponse] = await Promise.all([
-            $fetch<string>(thaiUrl, { responseType: 'text', timeout: 15000 }).catch(() => ''),
-            $fetch<string>(worldUrl, { responseType: 'text', timeout: 30000 }).catch(() => ''),
+        // 2) Fetch regional fires in parallel (5 small queries instead of 1 huge world query)
+        const regionUrls = WORLD_REGIONS.map(r =>
+            `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${firmsKey}/VIIRS_SNPP_NRT/${r.bbox}/1`
+        )
+
+        const [thaiResponse, ...regionResponses] = await Promise.all([
+            $fetch<string>(thaiUrl, { responseType: 'text', timeout: 8000 }).catch(() => ''),
+            ...regionUrls.map(url =>
+                $fetch<string>(url, { responseType: 'text', timeout: 8000 }).catch(() => '')
+            ),
         ])
 
-        const thaiRecords = parseFirmsCsv(thaiResponse)
-        const worldRecords = parseFirmsCsv(worldResponse)
+        const thaiRecordsRaw = parseFirmsCsv(thaiResponse)
 
-        console.log(`[FIRMS] Thailand: ${thaiRecords.length} hotspots, World: ${worldRecords.length} hotspots`)
+        // ★ Filter: only keep real fires (not thermal anomalies / agricultural burns)
+        //   - confidence "nominal" or "high" only (drop "low")
+        //   - FRP >= 2 MW (filter out tiny heat sources)
+        const filterRealFires = (records: FirmsRecord[]) =>
+            records.filter(r =>
+                (r.confidence === 'nominal' || r.confidence === 'n' || r.confidence === 'high' || r.confidence === 'h')
+                && (r.frp || 0) >= 2
+            )
 
-        // Process Thailand fires (for alert bar, stats, spread predictions)
-        const processRecords = (records: FirmsRecord[]) => {
+        const thaiRecords = filterRealFires(thaiRecordsRaw)
+        console.log(`[FIRMS] Thailand raw: ${thaiRecordsRaw.length}, after filter (confidence+FRP≥2): ${thaiRecords.length}`)
+
+        // Merge all regional records, remove duplicates near Thai bbox
+        let worldRecords: FirmsRecord[] = []
+        regionResponses.forEach((csv, i) => {
+            const records = filterRealFires(parseFirmsCsv(csv))
+            console.log(`[FIRMS] Region ${WORLD_REGIONS[i]!.name}: ${records.length} real fires`)
+            worldRecords.push(...records)
+        })
+
+        // Filter out records that fall inside the Thai bbox (already covered)
+        worldRecords = worldRecords.filter(r =>
+            !(r.latitude >= 5.6 && r.latitude <= 20.5 && r.longitude >= 97.3 && r.longitude <= 105.7)
+        )
+
+        // Sort by FRP (fire radiative power) and keep top 200 raw records for clustering
+        worldRecords.sort((a, b) => (b.frp || 0) - (a.frp || 0))
+        worldRecords = worldRecords.slice(0, 200)
+
+        console.log(`[FIRMS] Thailand: ${thaiRecords.length} real fires, World (sampled): ${worldRecords.length}`)
+
+        // Process records into fire clusters (5km threshold for grouping)
+        const processRecords = (records: FirmsRecord[], prefix: string = 'F') => {
             if (records.length === 0) return []
-            const clusters = clusterFires(records, 3)
+            const clusters = clusterFires(records, 5)
             return clusters.map((cluster, idx) => {
                 const lat = cluster.reduce((s, r) => s + r.latitude, 0) / cluster.length
                 const lng = cluster.reduce((s, r) => s + r.longitude, 0) / cluster.length
@@ -241,7 +284,7 @@ export async function fetchRealFireData() {
                 const intensity = brightnessToIntensity(maxBrightness)
 
                 const fire: any = {
-                    id: `F${(idx + 1).toString().padStart(3, '0')}`,
+                    id: `${prefix}${(idx + 1).toString().padStart(3, '0')}`,
                     name: `จุดไฟ #${idx + 1} (${lat.toFixed(2)}°N, ${lng.toFixed(2)}°E)`,
                     nameEn: `Fire Cluster #${idx + 1}`,
                     lat, lng,
@@ -277,12 +320,14 @@ export async function fetchRealFireData() {
             }).sort((a, b) => b.intensityLevel - a.intensityLevel)
         }
 
-        const thaiFires = processRecords(thaiRecords)
-        const worldFires = processRecords(worldRecords)
+        const thaiFires = processRecords(thaiRecords, 'F')
+        const allWorldClusters = processRecords(worldRecords, 'W')
+        // Keep only top 20 world fires by intensity + FRP
+        const worldFires = allWorldClusters.slice(0, 20)
 
-        // Spread predictions — use Thai fires, fallback to world fires
+        // Spread predictions — top 5 fires only (to stay within Vercel timeout)
         const spreadPredictions: any[] = []
-        const predictionFires = thaiFires.length > 0 ? thaiFires.slice(0, 10) : worldFires.slice(0, 10)
+        const predictionFires = thaiFires.length > 0 ? thaiFires.slice(0, 5) : worldFires.slice(0, 5)
         console.log(`[FIRMS] Computing spread predictions for ${predictionFires.length} fires (${thaiFires.length > 0 ? 'Thai' : 'World'})...`)
         for (const fire of predictionFires) {
             try {
@@ -353,9 +398,10 @@ export async function fetchRealRainData() {
             .sort((a: any, b: any) => b.rain24h - a.rain24h)
             .slice(0, 50)
 
-        // Compute rain direction predictions for ALL rain stations
-        console.log(`[Rain] Computing direction predictions for ${rainStations.length} stations...`)
-        for (const station of rainStations) {
+        // Compute rain direction predictions for top 10 stations only (to stay within Vercel timeout)
+        const topRainStations = rainStations.slice(0, 10)
+        console.log(`[Rain] Computing direction predictions for ${topRainStations.length}/${rainStations.length} stations...`)
+        for (const station of topRainStations) {
             try {
                 const wind = await fetchWindData(station.lat, station.lng)
                 const pred = predictRainDirection(station.lat, station.lng, station.rain24h, wind)
