@@ -9,6 +9,16 @@
             <div class="logo-subtitle">ระบบเฝ้าระวังภัยพิบัติทั่วประเทศ — Real-Time Data</div>
           </div>
         </div>
+        <nav class="header-nav">
+          <NuxtLink to="/" class="nav-link" :class="{ active: $route.path === '/' }">
+            <span class="material-symbols-rounded" style="font-size: 18px">dashboard</span>
+            แดชบอร์ด
+          </NuxtLink>
+          <NuxtLink to="/my-province" class="nav-link" :class="{ active: $route.path === '/my-province' }">
+            <span class="material-symbols-rounded" style="font-size: 18px">location_on</span>
+            จังหวัดของฉัน
+          </NuxtLink>
+        </nav>
         <div class="header-status">
           <button 
             class="theme-toggle" 
