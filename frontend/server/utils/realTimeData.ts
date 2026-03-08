@@ -231,12 +231,12 @@ export async function fetchRealFireData() {
         )
 
         const [thaiResponse, ...regionResponses] = await Promise.all([
-            $fetch<string>(thaiUrl, { responseType: 'text', timeout: 6000 }).catch((e) => {
+            $fetch<string>(thaiUrl, { responseType: 'text', timeout: 12000 }).catch((e) => {
                 console.error('[FIRMS] Thai fetch failed:', e?.message || e)
                 return ''
             }),
             ...regionUrls.map((url, i) =>
-                $fetch<string>(url, { responseType: 'text', timeout: 6000 }).catch((e) => {
+                $fetch<string>(url, { responseType: 'text', timeout: 12000 }).catch((e) => {
                     console.error(`[FIRMS] Region ${keyRegions[i]?.name} failed:`, e?.message || e)
                     return ''
                 })
@@ -247,12 +247,21 @@ export async function fetchRealFireData() {
 
         const thaiRecordsRaw = parseFirmsCsv(thaiResponse)
 
-        // ★ Filter: only keep real fires (not thermal anomalies / agricultural burns)
-        const filterRealFires = (records: FirmsRecord[]) =>
-            records.filter(r =>
+        // ★ Filter real fires — relaxed to show more data
+        const filterRealFires = (records: FirmsRecord[]) => {
+            // Primary: nominal/high confidence with any FRP
+            const strict = records.filter(r =>
                 (r.confidence === 'nominal' || r.confidence === 'n' || r.confidence === 'high' || r.confidence === 'h')
-                && (r.frp || 0) >= 2
+                && (r.frp || 0) >= 0.5
             )
+            // If strict filter returns results, use them
+            if (strict.length > 0) return strict
+            // Fallback: include low confidence fires with FRP > 0
+            const relaxed = records.filter(r => (r.frp || 0) > 0)
+            if (relaxed.length > 0) return relaxed
+            // Last resort: return all records
+            return records
+        }
 
         let thaiRecords = filterRealFires(thaiRecordsRaw)
         console.log(`[FIRMS] Thailand raw: ${thaiRecordsRaw.length}, after filter: ${thaiRecords.length}`)
@@ -335,6 +344,15 @@ export async function fetchRealFireData() {
         }
 
         const thaiFires = processRecords(thaiRecords, 'F')
+
+        // ★ Fallback: If no real fires detected (e.g., night time, no satellite pass), use mock data for demo
+        if (thaiFires.length === 0) {
+            console.log('[FIRMS] No real fires detected, using mock data fallback')
+            const mockData = getFireSummary()
+            setCache('fires', mockData)
+            return mockData
+        }
+
         const allWorldClusters = processRecords(worldRecords, 'W')
         const worldFires = allWorldClusters.slice(0, 20)
 
