@@ -146,12 +146,15 @@ async function generateLocalResponse(question: string, context: string): Promise
                 const data = rainData.status === 'fulfilled' ? (rainData.value as any)?.rainStations || [] : []
                 const provRain = data.filter((r: any) => r.province?.includes(matchedProvince))
                 if (provRain.length > 0) {
-                    const maxRain = Math.max(...provRain.map((r: any) => r.rain24h || 0))
-                    let msg = `เรื่องฝนตกที่ **${matchedProvince}** ใช่ไหมคะ? 🌧️\n\nจากสถานีในจังหวัด รายงานปริมาณฝนสะสมสูงสุด 24 ชม. อยู่ที่ **${maxRain} mm** ค่ะ`
-                    msg += maxRain > 35 ? ' ถือว่าตกหนักเลยนะคะ พกร่มและระวังน้ำขังด้วย ☂️' : ' ไม่ค่อยหนักเท่าไหร่ค่ะ 🌤️'
+                    const sortedRain = [...provRain].sort((a, b) => (b.rain24h || 0) - (a.rain24h || 0)).slice(0, 3)
+                    const maxRain = sortedRain[0].rain24h || 0
+                    const placesList = sortedRain.map(r => `${r.amphoe} (${r.rain24h}mm)`).join(', ')
+
+                    let msg = `ที่ **${matchedProvince}** ตอนนี้มีฝนตกค่ะ 🌧️\n\nจุดที่ฝนตกหนักสุด 24 ชม. ที่ผ่านมาคือ:\n- **${placesList}**\n\nปริมาณสูงสุดอยู่ที่ ${maxRain} mm`
+                    msg += maxRain > 35 ? ' ถือว่าตกหนักพอสมควรเลย ระวังน้ำขังด้วยนะคะ ☂️' : ' ไม่ค่อยหนักเท่าไหร่ค่ะ 🌤️'
                     return msg
                 } else {
-                    return `ตอนนี้ที่ **${matchedProvince}** ยังไม่มีรายงานฝนตกหนักจากสถานีเลยค่ะ ท้องฟ้าน่าจะโปร่งใส ☀️`
+                    return `ตอนนี้ที่ **${matchedProvince}** ยังไม่มีรายงานฝนตกจากสถานีตรวจวัดเลยค่ะ ท้องฟ้าน่าจะโปร่งใส ☀️`
                 }
             }
 
@@ -159,8 +162,11 @@ async function generateLocalResponse(question: string, context: string): Promise
                 const data = aqiData.status === 'fulfilled' ? (aqiData.value as any)?.stations || [] : []
                 const provAqi = data.filter((r: any) => r.name?.includes(matchedProvince) || r.nameEn?.toLowerCase().includes(matchedProvince.toLowerCase()))
                 if (provAqi.length > 0) {
-                    const maxAqi = Math.max(...provAqi.map((r: any) => r.aqi || 0))
-                    let msg = `ที่ **${matchedProvince}** ค่า AQI อยู่ที่ประมาณ **${maxAqi}** ค่ะ 💨\n\n`
+                    const sortedAqi = [...provAqi].sort((a, b) => (b.aqi || 0) - (a.aqi || 0)).slice(0, 3)
+                    const maxAqi = sortedAqi[0].aqi || 0
+                    const placesList = sortedAqi.map(r => `${r.name} (AQI: ${r.aqi})`).join(', ')
+
+                    let msg = `ค่าฝุ่นที่ **${matchedProvince}** จุดที่วัดได้สูงสุดอยู่ที่ AQI **${maxAqi}** ค่ะ 💨\n\nพิกัดสถานี:\n- ${placesList}\n\n`
                     if (maxAqi > 100) msg += 'คุณภาพอากาศเริ่มมีผลกระทบต่อสุขภาพ อย่าลืมใส่หน้ากากนะคะ 😷'
                     else msg += 'อากาศยังอยู่ในเกณฑ์ดี หายใจสะดวกค่ะ 🍃'
                     return msg
@@ -173,7 +179,9 @@ async function generateLocalResponse(question: string, context: string): Promise
                 const data = fireData.status === 'fulfilled' ? (fireData.value as any)?.fires || [] : []
                 const provFire = data.filter((f: any) => (f.province && f.province.includes(matchedProvince)) || (f.name && f.name.includes(matchedProvince)))
                 if (provFire.length > 0) {
-                    return `อัปเดตไฟป่าที่ **${matchedProvince}** 🔥\n\nพบจุดความร้อนทั้งหมด **${provFire.length} จุด** ในระยะนี้ ระวังฝุ่นควันและผลกระทบด้วยนะคะ 🌲`
+                    const sortedFires = [...provFire].sort((a, b) => (b.areaSqKm || 0) - (a.areaSqKm || 0)).slice(0, 3)
+                    const placesList = sortedFires.map(f => `${f.name || f.province} (${f.intensity === 'extreme' ? 'รุนแรงมาก' : f.intensity === 'high' ? 'รุนแรง' : 'ปานกลาง'})`).join(', ')
+                    return `อัปเดตไฟป่าที่ **${matchedProvince}** 🔥\n\nพบจุดความร้อนทั้งหมด **${provFire.length} จุด** จุดที่น่าเป็นห่วงคือ:\n- ${placesList}\n\nระวังฝุ่นควันและผลกระทบด้วยนะคะ 🌲`
                 } else {
                     return `ตอนนี้ยังไม่พบจุดพิกัดไฟป่ารุนแรงในพื้นที่ **${matchedProvince}** ค่ะ ปลอดภัยหายห่วง ✅`
                 }
