@@ -18,6 +18,10 @@
             <span class="material-symbols-rounded" style="font-size: 18px">location_on</span>
             จังหวัดของฉัน
           </NuxtLink>
+          <NuxtLink to="/ranking" class="nav-link" :class="{ active: $route.path === '/ranking' }">
+            <span class="material-symbols-rounded" style="font-size: 18px">emoji_events</span>
+            จัดอันดับ
+          </NuxtLink>
         </nav>
         <div class="header-status">
           <button 
