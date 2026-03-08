@@ -22,13 +22,13 @@ export default defineEventHandler(async (event) => {
 
     // Build prompt
     const systemInstruction = `คุณคือ "Disaster AI Assistant" ผู้ช่วยอัจฉริยะสุดใจดีสำหรับเว็บไซต์ Thailand Disaster Watch
-หน้าที่ของคุณ:
-1. ให้ข้อมูลและคำแนะนำเกี่ยวกับสถานการณ์น้ำท่วม ไฟป่า ฝุ่น PM2.5 และฝนตกในประเทศไทย
-2. ตอบคำถามเกี่ยวกับการใช้ชีวิตประจำวันหรือความปลอดภัยได้ เช่น "ฝนจะตกไหม", "รอดไหม", "น้ำจะท่วมไหม" โดยวิเคราะห์แจกแจงจากข้อมูลที่มี
-3. ตอบคำถามอย่างเป็นธรรมชาติ เหมือนคนคุยกัน (Conversational AI) ไม่เอาแบบหุ่นยนต์ หรือก็อปปี้ลิสต์ข้อมูลมาแปะทื่อๆ
-4. ใช้ข้อมูลจาก [ข้อมูลภัยพิบัติปัจจุบัน] ที่ระบบส่งให้เสมอ สรุปใจความสำคัญให้เข้าใจง่าย และอธิบายแหล่งที่มาได้ถอนถาม (เช่น NASA, ThaiWater, WAQI)
-5. ใช้ภาษาไทยที่สุภาพ เป็นมิตร กระตือรือร้น (ใช้คำลงท้าย ครับ/ค่ะ สลับกันไปตามเหมาะสม หรือใช้อีโมจิช่วยสื่ออารมณ์ 🌟🌧️🔥)
-6. หากผู้ใช้ถามเรื่องทั่วไปที่นอกเหนือจากภัยพิบัติ สามารถคุยเล่นได้นิดหน่อยแล้วค่อยวกกลับมาเรื่องภัยพิบัติอย่างสุภาพ`
+หน้าที่และกฎข้อบังคับของคุณ:
+1. ตอบคำถามเกี่ยวกับภัยพิบัติ (น้ำท่วม, ไฟป่า, ฝุ่น PM2.5, ฝนตก) ครอบคลุมทุกตำบล อำเภอ และจังหวัดทั่วประเทศไทย
+2. **สำคัญมากที่สุด:** คุณต้องอ้างอิงการตอบคำถามจาก [ข้อมูลภาพรวม] และ [ข้อมูลสืบค้นเฉพาะเจาะจง] ที่ระบบส่งให้แนบท้ายมาเท่านั้น (เป็นข้อมูล Real-time อัปเดตทุก 5 นาทีจากเซิร์ฟเวอร์หลัก)
+3. **ห้ามแต่งข้อมูลเอง เดา หรือใช้ฐานข้อมูลเก่าของคุณเด็ดขาด:** หากผู้ใช้ถามถึงพื้นที่ใดๆ แล้วในข้อมูล Context ไม่มีรายงานจุดเสี่ยงหรือสถานีในพื้นที่นั้นเลย ให้ตอบไปตามตรงว่า "ณ ปัจจุบันยังไม่มีรายงานภัยพิบัติในพิกัดดังกล่าวค่ะ จึงถือว่ายังอยู่ในเกณฑ์ปลอดภัยนะคะ 🌟"
+4. ตอบคำถามชีวิตประจำวันได้ เช่น "รังสิตฝนตกไหม", "เชียงใหม่น้ำจะท่วมไหม" โดยวิเคราะห์จาก Context ที่เจอ
+5. ตอบอย่างเป็นธรรมชาติ เป็นมิตร ไม่โยนข้อมูลเป็นลิสต์ยาวๆ น่าเบื่อจนเกินไป (ใช้คำลงท้าย ครับ/ค่ะ สลับกันไป หรือใช้อีโมจิ 🌟🌧️🔥)
+6. หากผู้ใช้ถามว่าข้อมูลมาจากไหน ให้อธิบายว่ามาจาก สสน. (ThaiWater), NASA FIRMS, และ WAQI`
 
     let historyText = ''
     if (history?.length > 0) {
@@ -104,9 +104,9 @@ export default defineEventHandler(async (event) => {
         }
 
         if (matches.length > 0) {
-            // Remove duplicates and limit to 40 lines
-            const uniqueMatches = [...new Set(matches)].slice(0, 40)
-            specificContext = `\n[ข้อมูลสืบค้นเฉพาะเจาะจงพื้นที่จากฐานข้อมูล (Local Search Results)]\n${uniqueMatches.join('\n')}\n`
+            // Remove duplicates and limit to 100 lines to provide extensive data for large provinces
+            const uniqueMatches = [...new Set(matches)].slice(0, 100)
+            specificContext = `\n[ข้อมูลสืบค้นเฉพาะเจาะจงพื้นที่จากฐานข้อมูล Real-time ล่าสุด]\n${uniqueMatches.join('\n')}\n`
             console.log(`[Chat] Added ${uniqueMatches.length} specific local context lines for query: "${userMessage}"`)
         }
 
@@ -114,7 +114,7 @@ export default defineEventHandler(async (event) => {
         console.error('[Chat] Failed to build dynamic RAG context', e)
     }
 
-    const fullPrompt = `${systemInstruction}\n\n${dashboardContext}\n${specificContext}\n${historyText}คำถามล่าสุดจากผู้ใช้: ${userMessage}`
+    const fullPrompt = `${systemInstruction}\n\n[ข้อมูลภาพรวมระดับประเทศ]\n${dashboardContext}\n${specificContext}\n${historyText}คำถามล่าสุดจากผู้ใช้: ${userMessage}`
 
     // Call Gemini API with retry on 429
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
@@ -206,7 +206,7 @@ async function generateLocalResponse(question: string, context: string, specific
         return `สวัสดีค่ะ! 👋 เราคือ **Disaster AI Assistant** หุ่นยนต์เฝ้าระวังภัยพิบัติ 🇹🇭\nอยากเช็ค ฝน, น้ำ, ไฟ, ฝุ่น ที่ไหน พิมพ์บอกพิกัดมาได้เลย!`
     }
 
-    const cleanLine = (l: string) => l.replace(/^\[.*?\]\s*/, '').trim()
+    const cleanLine = (l: string | undefined) => l ? l.replace(/^\[.*?\]\s*/, '').trim() : ''
 
     // 1. Check if we have dynamic RAG Context (matches specific amphoes/tambons/stations/provinces)
     const specLines = specificContext ? specificContext.split('\n').filter(l => l.startsWith('[')) : []
