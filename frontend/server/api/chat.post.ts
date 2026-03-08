@@ -1,4 +1,5 @@
-import { fetchRealFireData, fetchRealWaterData } from '../utils/realTimeData'
+import { fetchRealFireData, fetchRealWaterData, fetchRealRainData } from '../utils/realTimeData'
+import { fetchAirQualityData } from '../utils/airQuality'
 
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
@@ -27,37 +28,35 @@ export default defineEventHandler(async (event) => {
     try {
         const waterData = await fetchRealWaterData()
         const fireData = await fetchRealFireData()
-        const { fetchAirQualityData } = await import('../utils/airQuality')
-        const { fetchRealRainData } = await import('../utils/realTimeData')
 
-        const aqiRaw = await fetchAirQualityData?.().catch(() => null)
+        const aqiRaw = await fetchAirQualityData().catch(() => null)
         let aqiContext = '- ข้อมูลอากาศ (PM2.5): ไม่มีรายงานในขณะนี้'
 
         if (aqiRaw && aqiRaw.stations && aqiRaw.stations.length > 0) {
-            const allAqi = aqiRaw.stations.map((s: any) => `${s.name} (AQI ${s.aqi || 0}, PM2.5 ${s.pm25 || 0})`).join(', ')
-            aqiContext = `- ข้อมูลอากาศ (PM2.5) ทุกสถานี: ${allAqi}`
+            const allAqi = aqiRaw.stations.slice(0, 50).map((s: any) => `${s.name} (AQI ${s.aqi || 0}, PM2.5 ${s.pm25 || 0})`).join(', ')
+            aqiContext = `- ข้อมูลอากาศ (PM2.5): ${allAqi}`
         }
 
-        const rainRaw = await fetchRealRainData?.().catch(() => null)
+        const rainRaw = await fetchRealRainData().catch(() => null)
         let rainContext = '- ข้อมูลฝนตก: ตอนนี้ยังไม่มีรายงานฝนตกหนักในพื้นที่เฝ้าระวัง'
 
         if (rainRaw && rainRaw.rainStations && rainRaw.rainStations.length > 0) {
-            const allRain = rainRaw.rainStations.map((s: any) => `${s.province}-${s.amphoe} (${s.rain24h}mm)`).join(', ')
+            const allRain = rainRaw.rainStations.slice(0, 50).map((s: any) => `${s.province}-${s.amphoe} (${s.rain24h}mm)`).join(', ')
             rainContext = `- ข้อมูลพื้นที่ฝนตก (อ้างอิงรายอำเภอ เรียงจากตกหนักไปเบา): ${allRain}`
         }
 
         // Format water status
-        const criticalStations = waterData.stations.filter((s: any) => s.riskLevel === 'danger')
-        const warningStations = waterData.stations.filter((s: any) => s.riskLevel === 'warning')
+        const criticalStations = waterData?.stations?.filter((s: any) => s.riskLevel === 'danger') || []
+        const warningStations = waterData?.stations?.filter((s: any) => s.riskLevel === 'warning') || []
 
         dashboardContext = `
 [ข้อมูลภัยพิบัติปัจจุบัน (Real-time Context) - อ้างอิงข้อมูลด้านล่างให้ครบถ้วนเพื่อตอบคำถาม]
 เวลาปัจจุบัน: ${new Date().toLocaleString('th-TH')}
 - สถานการณ์น้ำ: สถานีวิกฤต (แดง) ${criticalStations.length} แห่ง, เฝ้าระวัง (เหลือง) ${warningStations.length} แห่ง
-${criticalStations.length > 0 ? `  สถานีวิกฤตรุนแรง: ${criticalStations.map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
-${warningStations.length > 0 ? `  สถานีเฝ้าระวัง: ${warningStations.map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
-- สถานการณ์ไฟป่า (FIRMS): พบจุดความร้อนเสี่ยงในไทย ${fireData.activeCount} จุด
-${fireData.fires && fireData.fires.length > 0 ? `  พิกัดไฟป่าทั้งหมดเรียงตามความรุนแรง (จังหวัด/อำเภอ): ${fireData.fires.slice(0, 100).map((f: any) => `${f.province || f.name} (ระดับ ${f.intensityLevel || f.intensity})`).join(', ')}` : ''}
+${criticalStations.length > 0 ? `  สถานีวิกฤตรุนแรง: ${criticalStations.slice(0, 20).map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
+${warningStations.length > 0 ? `  สถานีเฝ้าระวัง: ${warningStations.slice(0, 20).map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
+- สถานการณ์ไฟป่า (FIRMS): พบจุดความร้อนเสี่ยงในไทย ${fireData?.activeCount || 0} จุด
+${fireData?.fires && fireData.fires.length > 0 ? `  พิกัดไฟป่าทั้งหมดเรียงตามความรุนแรง (จังหวัด/อำเภอ): ${fireData.fires.slice(0, 50).map((f: any) => `${f.province || f.name} (ระดับ ${f.intensityLevel || f.intensity})`).join(', ')}` : ''}
 ${aqiContext}
 ${rainContext}
 `
@@ -96,8 +95,9 @@ ${rainContext}
 
     // 3. Call Gemini API
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
 
+        console.log('[Chat] Calling Gemini API...')
         const response: any = await $fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -111,14 +111,16 @@ ${rainContext}
         })
 
         const answer = response.candidates?.[0]?.content?.parts?.[0]?.text || "ขออภัยครับ AI ไม่สามารถตอบกลับได้ในขณะนี้"
+        console.log('[Chat] Gemini responded successfully, length:', answer.length)
 
         return { response: answer }
 
     } catch (error: any) {
-        console.error("Gemini API Error:", error.data || error.message || error)
-        throw createError({
-            statusCode: 500,
-            statusMessage: 'Failed to communicate with AI',
+        console.error('[Chat] Gemini API Error:', {
+            status: error?.statusCode || error?.status,
+            message: error?.message,
+            data: JSON.stringify(error?.data || error?.response || '').substring(0, 500),
         })
+        return { response: "ขออภัย ระบบ AI กำลังประสบปัญหากับการประมวลผลข้อมูล กรุณาลองใหม่อีกครั้งครับ ⚠️" }
     }
 })

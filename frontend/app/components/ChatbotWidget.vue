@@ -112,7 +112,7 @@ async function sendMessage() {
   }))
   
   try {
-    const { data, error } = await useFetch('/api/chat', {
+    const data = await $fetch('/api/chat', {
       method: 'POST',
       body: { 
         message: userMsg,
@@ -120,14 +120,12 @@ async function sendMessage() {
       }
     })
     
-    if (error.value) throw error.value
-    
     messages.value.push({ 
       role: 'assistant', 
-      content: data.value?.response || 'ขออภัยครับ เกิดข้อผิดพลาดในการประมวลผล'
+      content: data?.response || 'ขออภัยครับ เกิดข้อผิดพลาดในการประมวลผล'
     })
   } catch (err) {
-    console.error(err)
+    console.error('[Chatbot] API Error:', err)
     messages.value.push({ 
       role: 'assistant', 
       content: 'ระบบ AI ขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งครับ ⚠️'
