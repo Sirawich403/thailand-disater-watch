@@ -80,20 +80,18 @@ ${rainContext}
     // Build conversation history format for Gemini
     let contents = []
 
-    // Add history
-    for (const msg of history) {
-        if (msg.role === 'user' || msg.role === 'assistant') {
-            contents.push({
-                role: msg.role === 'assistant' ? 'model' : 'user',
-                parts: [{ text: msg.content }]
-            })
-        }
+    // Ensure strict alternating roles for Gemini (user, model, user, model)
+    // We will just simplify history by grouping it into a text string in the first user prompt to avoid Gemini 400 errors with role sequences.
+
+    let historyText = ''
+    if (history && history.length > 0) {
+        historyText = "[ประวัติการสนทนาก่อนหน้า]\n" + history.map((m: any) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n') + "\n\n"
     }
 
-    // Add new user message with context
+    // Add everything as a single user message with context to guarantee it never fails due to role interleaving errors
     contents.push({
         role: 'user',
-        parts: [{ text: `${systemInstruction}\n\n${dashboardContext}\n\nคำถามล่าสุดจากผู้ใช้: ${userMessage}` }]
+        parts: [{ text: `${systemInstruction}\n\n${dashboardContext}\n\n${historyText}คำถามล่าสุดจากผู้ใช้: ${userMessage}` }]
     })
 
     // 3. Call Gemini API
