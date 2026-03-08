@@ -34,32 +34,32 @@ export default defineEventHandler(async (event) => {
         let aqiContext = '- ข้อมูลอากาศ (PM2.5): ไม่มีรายงานในขณะนี้'
 
         if (aqiRaw && aqiRaw.stations && aqiRaw.stations.length > 0) {
-            // Find Chiang Mai and Chiang Rai as examples, and also the worst city
-            const cm = aqiRaw.stations.find((s: any) => s.name === 'เชียงใหม่')
-            const cr = aqiRaw.stations.find((s: any) => s.name === 'เชียงราย')
-            const worst = [...aqiRaw.stations].sort((a, b) => (b.pm25 || 0) - (a.pm25 || 0))[0]
-
-            aqiContext = `- ข้อมูลอากาศ (PM2.5): 
-  - เชียงใหม่: AQI ${cm?.aqi || '-'}, PM2.5 = ${cm?.pm25 || '-'} µg/m³ (${cm?.label || '-'})
-  - เชียงราย: AQI ${cr?.aqi || '-'}, PM2.5 = ${cr?.pm25 || '-'} µg/m³ (${cr?.label || '-'})
-  - แย่สุดประเทศตอนนี้: ${worst?.name} (AQI ${worst?.aqi}, PM2.5 ${worst?.pm25})`
+            const allAqi = aqiRaw.stations.map((s: any) => `${s.name} (AQI ${s.aqi || 0}, PM2.5 ${s.pm25 || 0})`).join(', ')
+            aqiContext = `- ข้อมูลอากาศ (PM2.5) ทุกสถานี: ${allAqi}`
         }
 
-        const rainData = await fetchRealRainData?.().catch(() => ({ rainingProvinces: [] })) || { rainingProvinces: [] }
+        const rainRaw = await fetchRealRainData?.().catch(() => null)
+        let rainContext = '- ข้อมูลฝนตก: ตอนนี้ยังไม่มีรายงานฝนตกหนักในพื้นที่เฝ้าระวัง'
+
+        if (rainRaw && rainRaw.rainStations && rainRaw.rainStations.length > 0) {
+            const allRain = rainRaw.rainStations.map((s: any) => `${s.province}-${s.amphoe} (${s.rain24h}mm)`).join(', ')
+            rainContext = `- ข้อมูลพื้นที่ฝนตก (อ้างอิงรายอำเภอ เรียงจากตกหนักไปเบา): ${allRain}`
+        }
 
         // Format water status
         const criticalStations = waterData.stations.filter((s: any) => s.riskLevel === 'danger')
         const warningStations = waterData.stations.filter((s: any) => s.riskLevel === 'warning')
 
         dashboardContext = `
-[ข้อมูลภัยพิบัติปัจจุบัน (Real-time Context)]
+[ข้อมูลภัยพิบัติปัจจุบัน (Real-time Context) - อ้างอิงข้อมูลด้านล่างให้ครบถ้วนเพื่อตอบคำถาม]
 เวลาปัจจุบัน: ${new Date().toLocaleString('th-TH')}
-- สถานการณ์น้ำ: ตอนนี้มีสถานีวิกฤต (แดง) ${criticalStations.length} แห่ง, เฝ้าระวัง (เหลือง) ${warningStations.length} แห่ง
-${criticalStations.length > 0 ? `  สถานีวิกฤต: ${criticalStations.map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
-- สถานการณ์ไฟป่า (ความร้อนจาก FIRMS): พบจุดความร้อนเสี่ยงในไทย ${fireData.activeCount} จุดความร้อนย่อย
-${fireData.fires && fireData.fires.length > 0 ? `  พิกัดไฟป่ารุนแรง: ${fireData.fires.slice(0, 3).map((f: any) => `${f.name} (ระดับความรุนแรง: ${f.intensity})`).join(', ')}` : ''}
+- สถานการณ์น้ำ: สถานีวิกฤต (แดง) ${criticalStations.length} แห่ง, เฝ้าระวัง (เหลือง) ${warningStations.length} แห่ง
+${criticalStations.length > 0 ? `  สถานีวิกฤตรุนแรง: ${criticalStations.map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
+${warningStations.length > 0 ? `  สถานีเฝ้าระวัง: ${warningStations.map((s: any) => `${s.name} (${s.currentLevel.toFixed(2)}m)`).join(', ')}` : ''}
+- สถานการณ์ไฟป่า (FIRMS): พบจุดความร้อนเสี่ยงในไทย ${fireData.activeCount} จุด
+${fireData.fires && fireData.fires.length > 0 ? `  พิกัดไฟป่าทั้งหมดเรียงตามความรุนแรง (จังหวัด/อำเภอ): ${fireData.fires.slice(0, 100).map((f: any) => `${f.province || f.name} (ระดับ ${f.intensityLevel || f.intensity})`).join(', ')}` : ''}
 ${aqiContext}
-- ข้อมูลฝนตก: ${rainData.rainingProvinces && rainData.rainingProvinces.length > 0 ? `ตอนนี้มีฝนตกที่จังหวัด ${rainData.rainingProvinces.join(', ')}` : 'ตอนนี้ยังไม่มีรายงานฝนตกหนักในพื้นที่เฝ้าระวัง'}
+${rainContext}
 `
     } catch (e) {
         dashboardContext = "ระบบกำลังดึงข้อมูลเรียลไทม์ขัดข้อง แต่ยังให้คำแนะนำพื้นฐานได้"
