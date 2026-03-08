@@ -550,6 +550,12 @@
           แสดง {{ displayedFires.length }}/{{ showAllFires ? worldFires.length : fires.length }} จุด
         </span>
       </div>
+
+      <!-- Scroll Zoom Hint -->
+      <div v-if="scrollHint" class="scroll-zoom-hint">
+        <span class="material-symbols-rounded" style="font-size: 20px">mouse</span>
+        กด Ctrl + เลื่อน เพื่อซูมแผนที่
+      </div>
     </div>
   </div>
 </template>
@@ -601,9 +607,41 @@ function flyToResult(result) {
 
 const mapOptions = {
   zoomControl: true,
-  scrollWheelZoom: true,
+  scrollWheelZoom: false,
   attributionControl: false,
 }
+
+// Show a hint when users try to scroll on the map
+const scrollHint = ref(false)
+let scrollHintTimer = null
+
+onMounted(() => {
+  nextTick(() => {
+    const mapContainer = document.querySelector('.map-container')
+    if (mapContainer) {
+      mapContainer.addEventListener('wheel', (e) => {
+        // If Ctrl is held, enable zoom temporarily
+        if (e.ctrlKey || e.metaKey) {
+          if (map.value?.leafletObject) {
+            map.value.leafletObject.scrollWheelZoom.enable()
+            setTimeout(() => {
+              if (map.value?.leafletObject) {
+                map.value.leafletObject.scrollWheelZoom.disable()
+              }
+            }, 1000)
+          }
+        } else {
+          // Show hint
+          scrollHint.value = true
+          if (scrollHintTimer) clearTimeout(scrollHintTimer)
+          scrollHintTimer = setTimeout(() => {
+            scrollHint.value = false
+          }, 1500)
+        }
+      }, { passive: true })
+    }
+  })
+})
 
 // Watch for focusFire changes and pan map
 watch(() => props.focusFire, (newVal) => {
@@ -1350,6 +1388,35 @@ function getRainIntensityLabel(intensity) {
 @keyframes wd-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
   50% { transform: scale(1.1); box-shadow: 0 2px 12px rgba(29, 78, 216, 0.4); }
+}
+
+/* Scroll Zoom Hint */
+.scroll-zoom-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  animation: fade-hint 1.5s ease-in-out;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+
+@keyframes fade-hint {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 </style>
 
