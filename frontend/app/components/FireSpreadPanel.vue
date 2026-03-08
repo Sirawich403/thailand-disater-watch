@@ -542,10 +542,20 @@ function getProvinceFromCoords(lat, lng) {
 
 .fire-stat-item {
   text-align: center;
-  padding: 0.75rem;
-  background: rgba(10, 15, 30, 0.5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  padding: 0.85rem 0.5rem;
+  background: rgba(249, 115, 22, 0.04);
+  border: 1px solid rgba(249, 115, 22, 0.15);
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+}
+
+[data-theme="dark"] .fire-stat-item {
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.fire-stat-item:hover {
+  background: rgba(249, 115, 22, 0.08);
+  border-color: rgba(249, 115, 22, 0.3);
 }
 
 .fire-stat-item .material-symbols-rounded {
@@ -562,9 +572,10 @@ function getProvinceFromCoords(lat, lng) {
 }
 
 .fire-stat-label {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
+  font-weight: 500;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 /* Weather */
@@ -578,11 +589,21 @@ function getProvinceFromCoords(lat, lng) {
 .fire-weather-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(10, 15, 30, 0.5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem;
+  gap: 8px;
+  background: rgba(56, 189, 248, 0.04);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  transition: all 0.2s;
+}
+
+[data-theme="dark"] .fire-weather-item {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.fire-weather-item:hover {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.3);
 }
 
 .fire-weather-item .material-symbols-rounded {
@@ -598,7 +619,8 @@ function getProvinceFromCoords(lat, lng) {
 }
 
 .fire-weather-label {
-  font-size: 0.62rem;
+  font-size: 0.65rem;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
@@ -622,11 +644,20 @@ function getProvinceFromCoords(lat, lng) {
 }
 
 .spread-step {
-  background: rgba(10, 15, 30, 0.5);
+  background: rgba(128, 128, 128, 0.04);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.6rem;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.5rem;
   text-align: center;
+  transition: all 0.2s;
+}
+
+[data-theme="dark"] .spread-step {
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.spread-step:hover {
+  background: rgba(128, 128, 128, 0.08);
 }
 
 .spread-step.extreme { border-left: 3px solid #dc2626; }
