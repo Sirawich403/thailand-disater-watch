@@ -345,16 +345,21 @@ export async function fetchRealFireData() {
 
         const thaiFires = processRecords(thaiRecords, 'F')
 
+        const allWorldClusters = processRecords(worldRecords, 'W')
+        const worldFires = allWorldClusters.slice(0, 20)
+
         // ★ Fallback: If no real fires detected (e.g., night time, no satellite pass), use mock data for demo
         if (thaiFires.length === 0) {
             console.log('[FIRMS] No real fires detected, using mock data fallback')
             const mockData = getFireSummary()
-            setCache('fires', mockData)
-            return mockData
+            const resultWithWorldFires = {
+                ...mockData,
+                worldCount: worldFires.length,
+                worldFires: worldFires
+            }
+            setCache('fires', resultWithWorldFires)
+            return resultWithWorldFires
         }
-
-        const allWorldClusters = processRecords(worldRecords, 'W')
-        const worldFires = allWorldClusters.slice(0, 20)
 
         console.log(`[FIRMS] Clusters — Thai: ${thaiFires.length}, World: ${worldFires.length}`)
 
