@@ -95,7 +95,10 @@
               <!-- Wind direction arrow (main spread direction) -->
               <LPolyline
                 :lat-lngs="[[pred.center.lat, pred.center.lng], [pred.spreadArrow.lat, pred.spreadArrow.lng]]"
-                :options="{ color: '#ff6b35', weight: 3, opacity: 0.8, dashArray: '8,6' }"
+                color="#ff6b35"
+                :weight="3"
+                :opacity="0.8"
+                dash-array="8, 6"
               />
               <!-- Spread probability circles in 8 directions -->
               <LCircle
@@ -305,7 +308,10 @@
                   v-for="(seg, si) in getRainPathSegments(rain)"
                   :key="'rain-seg-' + idx + '-' + si"
                   :lat-lngs="seg.latlngs"
-                  :options="seg.options"
+                  :color="seg.options.color"
+                  :weight="seg.options.weight"
+                  :opacity="seg.options.opacity"
+                  dash-array="10, 6"
                 />
 
                 <!-- Time markers at each predicted position (1h, 2h, 3h) -->
