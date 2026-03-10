@@ -533,10 +533,12 @@ export async function fetchRealWaterData() {
             const minBank = station.min_bank || 999
 
             let riskLevel = 'safe'
-            if (situationLevel >= 5) riskLevel = 'danger'       // ล้นตลิ่ง — วิกฤตจริง
-            else if (situationLevel >= 3) riskLevel = 'critical' // วิกฤต — เฝ้าระวังสูง
-            else if (situationLevel >= 2) riskLevel = 'warning'  // เฝ้าระวัง
+            if (situationLevel === 5) riskLevel = 'danger'       // ล้นตลิ่ง — วิกฤตจริง
+            else if (situationLevel === 3) riskLevel = 'critical' // วิกฤต — เฝ้าระวังสูง
+            else if (situationLevel === 2) riskLevel = 'warning'  // เฝ้าระวัง
+            // 1=ปกติ, 4=ปลอดภัย, 0=ไม่มีข้อมูล -> ให้เป็น safe
             // ไม่ใช้ threshold ที่ประมาณเอง — ใช้เฉพาะข้อมูล real-time จาก API
+
 
             const flowTimeToDownstream = type === 'upstream' ? 6 : type === 'midstream' ? 3 : 0
 
