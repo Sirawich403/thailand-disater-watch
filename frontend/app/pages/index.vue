@@ -450,7 +450,7 @@ const p1Trend = computed(() => {
 })
 
 const totalRain = computed(() => {
-  return dashboardStations.value.reduce((sum, s) => sum + (s.rainfall?.accumulated24h || 0), 0)
+  return rainStationsList.value.reduce((sum, s) => sum + (s.rain24h || 0), 0)
 })
 
 const riskColor = computed(() => {
